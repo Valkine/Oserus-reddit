@@ -27,8 +27,8 @@ class CloakManagerBinary {
     // path is ever wired up, downloadBinary() needs to extract the zip
     // into a folder the same way ensureRunning()'s seeding step does.
     this.githubConfig = {
-      owner: 'Gee2424',
-      repo: 'ctrldlogin',
+      owner: 'Valkine',
+      repo: 'Oserus-reddit',
       assetName: 'ctrldlogin-backend-windows.zip',
       // Only re-check GitHub this often (ms)
       checkIntervalMs: 24 * 60 * 60 * 1000, // 24 hours (daily)

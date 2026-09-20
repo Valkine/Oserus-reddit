@@ -26,23 +26,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          Write-Host "Fetching latest release from Gee2424/ctrldlogin..."
-          $release = gh api repos/Gee2424/ctrldlogin/releases/latest | ConvertFrom-Json
-          $tag = $release.tag_name
-          Write-Host "Release tag: $tag"
-
-          # ctrldlogin ships Windows as a zip of its Nuitka --standalone
-          # output (backend.exe plus the DLLs/extension modules it needs to
-          # load) -- the exe alone can't start without those siblings.
-          $asset = $release.assets | Where-Object { $_.name -eq "ctrldlogin-backend-windows.zip" }
-          if (-not $asset) {
-            Write-Error "Asset ctrldlogin-backend-windows.zip not found in release $tag"
-            exit 1
-          }
-
-          Write-Host "Downloading $($asset.name) ($([math]::Round($asset.size/1MB, 1)) MB)..."
-          gh release download $tag `
-            --repo Gee2424/ctrldlogin `
+          Write-Host "Fetching CloakManager backend from Valkine/Oserus-reddit releases..."
+          gh release download v0.86.12 `
+            --repo Valkine/Oserus-reddit `
             --pattern "ctrldlogin-backend-windows.zip" `
             --dir build --clobber
 
