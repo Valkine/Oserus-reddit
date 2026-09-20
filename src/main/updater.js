@@ -30,6 +30,16 @@ function initAutoUpdater(win, onUpdateReady) {
     return;
   }
 
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'Valkine',
+      repo: 'Oserus-reddit',
+    });
+  } catch (e) {
+    log.error('[updater] setFeedURL error:', e);
+  }
+
   autoUpdater.on('checking-for-update', () => log.info('[updater] checking'));
   autoUpdater.on('update-available', (info) => {
     log.info('[updater] available', info.version);
