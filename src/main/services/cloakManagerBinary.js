@@ -485,6 +485,8 @@ class CloakManagerBinary {
       CTRLDLOGIN_PORT: port.toString(),
       CTRLDLOGIN_HOST: '127.0.0.1',
       CTRLDLOGIN_DATA_DIR: dataDir,
+      CTRLDLOGIN_ANALYTICS: '0',
+      ANALYTICS_ENABLED: '0',
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1',
     };
