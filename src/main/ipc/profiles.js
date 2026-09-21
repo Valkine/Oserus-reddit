@@ -1,5 +1,5 @@
 const { getDb } = require('../db');
-const { userFromToken, requireManagerOrAdmin } = require('./auth');
+const { userFromToken, requireManagerOrAdmin, requireOwnerOrAdmin } = require('./auth');
 const { hasPermission } = require('../permissions');
 const { profileScopeClause } = require('../lib/assignments');
 
@@ -50,44 +50,22 @@ function register(ipcMain) {
     const user = userFromToken(token);
     if (!user) return { ok: false, error: 'Not authenticated' };
 
-    // Non-managers see profiles they're either the legacy primary assignee on
-    // OR a member of via profile_assignments.
+    // Strict employee scoping: non-owners only see profiles they're assigned to.
     const scope = profileScopeClause(user, 'p');
-    const rows = teamId
-      ? getDb()
-          .prepare(
-            `SELECT p.*, u.display_name AS assigned_to_name, u.username AS assigned_to_username,
-                    (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id) AS account_count,
-                    (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status = 'ready') AS ready_count
-             FROM model_profiles p
-             LEFT JOIN users u ON u.id = p.assigned_user_id
-             WHERE p.team_id = ? AND ${scope.sql}
-             ORDER BY p.created_at DESC`
-          )
-          .all(teamId, ...scope.params)
-      : hasPermission(user, 'profiles.manage')
-        ? getDb()
-            .prepare(
-              `SELECT p.*, u.display_name AS assigned_to_name, u.username AS assigned_to_username,
-                      (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id) AS account_count,
-                      (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status = 'ready') AS ready_count
-               FROM model_profiles p
-               LEFT JOIN users u ON u.id = p.assigned_user_id
-               ORDER BY p.created_at DESC`
-            )
-            .all()
-        : getDb()
-            .prepare(
-              `SELECT p.*, u.display_name AS assigned_to_name, u.username AS assigned_to_username,
-                      (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id) AS account_count,
-                      (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status = 'ready') AS ready_count
-               FROM model_profiles p
-               LEFT JOIN users u ON u.id = p.assigned_user_id
-               WHERE p.assigned_user_id = ?
-                  OR EXISTS (SELECT 1 FROM profile_assignments pa WHERE pa.profile_id = p.id AND pa.user_id = ?)
-               ORDER BY p.created_at DESC`
-            )
-            .all(user.id, user.id);
+    const whereSql = teamId ? `p.team_id = ? AND ${scope.sql}` : scope.sql;
+    const whereParams = teamId ? [teamId, ...scope.params] : scope.params;
+    const rows = getDb()
+      .prepare(
+        `SELECT p.*, u.display_name AS assigned_to_name, u.username AS assigned_to_username,
+                (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id) AS account_count,
+                (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status = 'ready') AS ready_count
+         FROM model_profiles p
+         LEFT JOIN users u ON u.id = p.assigned_user_id
+         WHERE ${whereSql}
+         ORDER BY p.created_at DESC`
+      )
+      .all(...whereParams);
+
     for (const r of rows) {
       r.members = listAssignments(r.id);
       try {
@@ -103,7 +81,7 @@ function register(ipcMain) {
 
   ipcMain.handle('profiles:addMember', (_e, { token, profileId, userId, role }) => {
     try {
-      requireManagerOrAdmin(token);
+      requireOwnerOrAdmin(token);
       if (!role) throw new Error('Role required');
       const known = getDb().prepare("SELECT 1 FROM roles WHERE key = ? AND key != 'admin'").get(role);
       if (!known) throw new Error('Unknown role — create it in Roles first');
@@ -117,7 +95,7 @@ function register(ipcMain) {
 
   ipcMain.handle('profiles:removeMember', (_e, { token, profileId, userId }) => {
     try {
-      requireManagerOrAdmin(token);
+      requireOwnerOrAdmin(token);
       getDb().prepare('DELETE FROM profile_assignments WHERE profile_id=? AND user_id=?').run(profileId, userId);
       return { ok: true, members: listAssignments(profileId) };
     } catch (err) { return { ok: false, error: err.message }; }
@@ -125,7 +103,7 @@ function register(ipcMain) {
 
   ipcMain.handle('profiles:setMemberRole', (_e, { token, profileId, userId, role }) => {
     try {
-      requireManagerOrAdmin(token);
+      requireOwnerOrAdmin(token);
       if (!role) throw new Error('Role required');
       const known = getDb().prepare("SELECT 1 FROM roles WHERE key = ? AND key != 'admin'").get(role);
       if (!known) throw new Error('Unknown role — create it in Roles first');
@@ -137,7 +115,7 @@ function register(ipcMain) {
   ipcMain.handle('profiles:create', async (_e, args) => {
     try {
       const { token, name, assignedUserId, niche, brandVoice, notes, avatarColor, teamId, browserMode } = args;
-      requireManagerOrAdmin(token);
+      requireOwnerOrAdmin(token);
       const mode = browserMode === 'electron' ? 'electron' : 'cloakmanager';
       const info = getDb()
         .prepare(
@@ -162,7 +140,7 @@ function register(ipcMain) {
 
   ipcMain.handle('profiles:update', async (_e, { token, profileId, updates, teamId }) => {
     try {
-      requireManagerOrAdmin(token);
+      requireOwnerOrAdmin(token);
       const allowed = ['name', 'assigned_user_id', 'niche', 'brand_voice', 'notes', 'avatar_color', 'proxy_id', 'main_email'];
       const sets = [], params = [];
       for (const k of allowed) {
@@ -229,7 +207,7 @@ function register(ipcMain) {
 
   ipcMain.handle('profiles:assign', (_e, { token, profileId, assignedUserId, teamId }) => {
     try {
-      requireManagerOrAdmin(token);
+      requireOwnerOrAdmin(token);
       if (teamId) {
         const result = getDb()
           .prepare('UPDATE model_profiles SET assigned_user_id = ? WHERE id = ? AND team_id = ?')
@@ -248,7 +226,7 @@ function register(ipcMain) {
 
   ipcMain.handle('profiles:delete', (_e, { token, profileId, teamId }) => {
     try {
-      requireManagerOrAdmin(token);
+      requireOwnerOrAdmin(token);
       const result = teamId
         ? getDb().prepare('DELETE FROM model_profiles WHERE id = ? AND team_id = ?').run(profileId, teamId).changes
         : getDb().prepare('DELETE FROM model_profiles WHERE id = ?').run(profileId).changes;

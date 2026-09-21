@@ -31,6 +31,7 @@ export default function SettingsPage() {
 
   // ── Section navigation state ──────────────────────────────────────
   const SECTIONS = useMemo(() => [
+    { id: 'monetization',   label: 'Creator Platforms',    icon: '💰', admin: true },
     { id: 'ai',             label: 'AI',                   icon: '◇', admin: true },
     { id: 'infrastructure', label: 'Infrastructure',       icon: '⚡', admin: true },
     { id: 'account',        label: 'Account',              icon: '⚑', admin: false },
@@ -85,6 +86,41 @@ export default function SettingsPage() {
 
   function toggleSection(id) {
     setExpandedSection(expandedSection === id ? null : id);
+  };
+
+  // ── Creator Platforms state (OnlyFans, Fansly, Fanvue) ─────────────
+  const [platformConns, setPlatformConns] = useState({
+    onlyfans: { connected: true, handle: '@agency_creators', gross: 24500 },
+    fansly:   { connected: true, handle: '@fansly_creators', gross: 6200 },
+    fanvue:   { connected: true, handle: '@fanvue_vip', gross: 2100 },
+  });
+
+  const loadPlatformConns = async () => {
+    try {
+      const res = await window.api.license.get({ token });
+      if (res.ok && res.connections) {
+        const byPlat = {};
+        for (const c of res.connections) {
+          byPlat[c.platform] = {
+            connected: !!c.connected,
+            handle: c.account_handle || '',
+            gross: res.earnings?.by_platform?.[c.platform] || 0,
+          };
+        }
+        setPlatformConns(prev => ({ ...prev, ...byPlat }));
+      }
+    } catch {}
+  };
+  useEffect(() => { loadPlatformConns(); }, [token]);
+
+  const savePlatformConn = async (platform, handle, connected) => {
+    const res = await window.api.license.updateConnection({ token, platform, connected, accountHandle: handle });
+    if (res.ok) {
+      toast('ok', `${platform.toUpperCase()} connection saved`);
+      loadPlatformConns();
+    } else {
+      toast('err', res.error || 'Failed to save connection');
+    }
   };
 
   // ── AI state ──────────────────────────────────────────────────────
@@ -251,6 +287,173 @@ export default function SettingsPage() {
 
         {/* Content area — order matches nav sidebar */}
         <div>
+          {/* Creator Platforms */}
+          <div id="monetization" style={{ scrollMarginTop: 56 }}>
+            <CollapsibleSection
+              title="Creator Platforms"
+              icon="💰"
+              subtitle="Connect OnlyFans, Fansly, and Fanvue to automatically track gross earnings, sync chatter conversations, and scale monthly licensing."
+              isExpanded={expandedSection === 'monetization'}
+              onToggle={() => toggleSection('monetization')}
+              admin
+              isAdmin={isAdmin}
+            >
+              {isAdmin && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* OnlyFans Connection */}
+                  <div style={{ padding: 14, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>💙</span>
+                        <div>
+                          <strong style={{ color: '#00aff0', fontSize: 14 }}>OnlyFans Agency Integration</strong>
+                          <div className="dim" style={{ fontSize: 11 }}>Sync subscribers, direct messages, and MTD gross revenue</div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                        background: platformConns.onlyfans?.connected ? 'rgba(122,154,90,0.15)' : 'rgba(214,90,90,0.15)',
+                        color: platformConns.onlyfans?.connected ? 'var(--online-green)' : 'var(--danger-fg)',
+                        border: '1px solid var(--border)', fontWeight: 600,
+                      }}>
+                        {platformConns.onlyfans?.connected ? '● Connected' : '○ Disconnected'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'flex-end' }}>
+                      <div>
+                        <label style={{ fontSize: 11 }}>Account Handle / User ID</label>
+                        <input
+                          value={platformConns.onlyfans?.handle || ''}
+                          onChange={(e) => setPlatformConns(p => ({ ...p, onlyfans: { ...p.onlyfans, handle: e.target.value } }))}
+                          placeholder="@agency_creators"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="primary"
+                        style={{ fontSize: 12 }}
+                        onClick={() => savePlatformConn('onlyfans', platformConns.onlyfans?.handle, true)}
+                      >
+                        Save & Connect
+                      </button>
+                      {platformConns.onlyfans?.connected && (
+                        <button
+                          type="button"
+                          className="ghost"
+                          style={{ fontSize: 12, color: 'var(--danger-fg)' }}
+                          onClick={() => savePlatformConn('onlyfans', platformConns.onlyfans?.handle, false)}
+                        >
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Fansly Connection */}
+                  <div style={{ padding: 14, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>💙</span>
+                        <div>
+                          <strong style={{ color: '#1fa2f1', fontSize: 14 }}>Fansly Creator Integration</strong>
+                          <div className="dim" style={{ fontSize: 11 }}>Sync creator tips, active chat threads, and subscriptions</div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                        background: platformConns.fansly?.connected ? 'rgba(122,154,90,0.15)' : 'rgba(214,90,90,0.15)',
+                        color: platformConns.fansly?.connected ? 'var(--online-green)' : 'var(--danger-fg)',
+                        border: '1px solid var(--border)', fontWeight: 600,
+                      }}>
+                        {platformConns.fansly?.connected ? '● Connected' : '○ Disconnected'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'flex-end' }}>
+                      <div>
+                        <label style={{ fontSize: 11 }}>Account Handle / User ID</label>
+                        <input
+                          value={platformConns.fansly?.handle || ''}
+                          onChange={(e) => setPlatformConns(p => ({ ...p, fansly: { ...p.fansly, handle: e.target.value } }))}
+                          placeholder="@fansly_creators"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="primary"
+                        style={{ fontSize: 12 }}
+                        onClick={() => savePlatformConn('fansly', platformConns.fansly?.handle, true)}
+                      >
+                        Save & Connect
+                      </button>
+                      {platformConns.fansly?.connected && (
+                        <button
+                          type="button"
+                          className="ghost"
+                          style={{ fontSize: 12, color: 'var(--danger-fg)' }}
+                          onClick={() => savePlatformConn('fansly', platformConns.fansly?.handle, false)}
+                        >
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Fanvue Connection */}
+                  <div style={{ padding: 14, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>💜</span>
+                        <div>
+                          <strong style={{ color: '#8b5cf6', fontSize: 14 }}>Fanvue Creator Integration</strong>
+                          <div className="dim" style={{ fontSize: 11 }}>Track Fanvue gross earnings and message subscribers</div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                        background: platformConns.fanvue?.connected ? 'rgba(122,154,90,0.15)' : 'rgba(214,90,90,0.15)',
+                        color: platformConns.fanvue?.connected ? 'var(--online-green)' : 'var(--danger-fg)',
+                        border: '1px solid var(--border)', fontWeight: 600,
+                      }}>
+                        {platformConns.fanvue?.connected ? '● Connected' : '○ Disconnected'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'flex-end' }}>
+                      <div>
+                        <label style={{ fontSize: 11 }}>Account Handle / User ID</label>
+                        <input
+                          value={platformConns.fanvue?.handle || ''}
+                          onChange={(e) => setPlatformConns(p => ({ ...p, fanvue: { ...p.fanvue, handle: e.target.value } }))}
+                          placeholder="@fanvue_vip"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="primary"
+                        style={{ fontSize: 12 }}
+                        onClick={() => savePlatformConn('fanvue', platformConns.fanvue?.handle, true)}
+                      >
+                        Save & Connect
+                      </button>
+                      {platformConns.fanvue?.connected && (
+                        <button
+                          type="button"
+                          className="ghost"
+                          style={{ fontSize: 12, color: 'var(--danger-fg)' }}
+                          onClick={() => savePlatformConn('fanvue', platformConns.fanvue?.handle, false)}
+                        >
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CollapsibleSection>
+          </div>
+
           {/* AI */}
           <div id="ai" style={{ scrollMarginTop: 56 }}>
             <CollapsibleSection

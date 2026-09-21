@@ -50,9 +50,10 @@ function register() {
   ipcMain.handle('roles:create', async (_e, { token, key, label, description, permissions }) => {
     try {
       const user = userFromToken(token);
-      requirePermission(user, 'roles.manage');
+      if (!user) throw new Error('Not authenticated');
+      if (user.role !== 'owner' && user.role !== 'admin') throw new Error('Owner permissions required to create custom roles');
       validateKey(key);
-      if (key === 'admin') throw new Error('Reserved key');
+      if (key === 'admin' || key === 'owner') throw new Error('Reserved key');
       const db = getDb();
       const exists = db.prepare('SELECT 1 FROM roles WHERE key = ?').get(key);
       if (exists) throw new Error('A role with that key already exists');
@@ -72,8 +73,9 @@ function register() {
   ipcMain.handle('roles:update', async (_e, { token, key, label, description, permissions }) => {
     try {
       const user = userFromToken(token);
-      requirePermission(user, 'roles.manage');
-      if (key === 'admin') throw new Error('Cannot edit the admin bootstrap role');
+      if (!user) throw new Error('Not authenticated');
+      if (user.role !== 'owner' && user.role !== 'admin') throw new Error('Owner permissions required to modify roles');
+      if (key === 'admin' || key === 'owner') throw new Error('Cannot edit bootstrap role');
       const db = getDb();
       const row = db.prepare('SELECT key FROM roles WHERE key = ?').get(key);
       if (!row) throw new Error('Role not found');
@@ -98,8 +100,9 @@ function register() {
   ipcMain.handle('roles:delete', async (_e, { token, key }) => {
     try {
       const user = userFromToken(token);
-      requirePermission(user, 'roles.manage');
-      if (key === 'admin') throw new Error('Cannot delete the admin bootstrap role');
+      if (!user) throw new Error('Not authenticated');
+      if (user.role !== 'owner' && user.role !== 'admin') throw new Error('Owner permissions required to delete roles');
+      if (key === 'admin' || key === 'owner') throw new Error('Cannot delete bootstrap role');
       const db = getDb();
       const inUse = db.prepare('SELECT COUNT(*) AS c FROM users WHERE role = ?').get(key).c;
       if (inUse > 0) throw new Error(`${inUse} user(s) still have this role — reassign them first`);

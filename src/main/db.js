@@ -897,22 +897,22 @@ function initDatabase() {
   // Seed built-in platforms if the table is empty.
   try {
     const platCount = db.prepare('SELECT COUNT(*) AS c FROM platforms').get().c;
-    if (platCount === 0) {
-      const builtins = [
-        { key: 'reddit',    label: 'Reddit',    short: 'R',  color: '#ff4500', home: 'https://www.reddit.com/',           login: 'https://www.reddit.com/login',                    prefix: 'u/',  icon: '🔴', order: 1 },
-        { key: 'redgifs',   label: 'RedGIFs',   short: 'G',  color: '#ff2e74', home: 'https://www.redgifs.com/',          login: 'https://www.redgifs.com/signin',                   prefix: '@',   icon: '🟠', order: 2 },
-        { key: 'x',         label: 'X',         short: '𝕏', color: '#1d9bf0', home: 'https://x.com/home',                login: 'https://x.com/login',                              prefix: '@',   icon: '🔵', order: 3 },
-        { key: 'instagram', label: 'Instagram', short: 'IG', color: '#e1306c', home: 'https://www.instagram.com/',        login: 'https://www.instagram.com/accounts/login/',         prefix: '@',   icon: '🟣', order: 4 },
-        { key: 'tiktok',    label: 'TikTok',    short: 'TT', color: '#25f4ee', home: 'https://www.tiktok.com/foryou',     login: 'https://www.tiktok.com/login',                      prefix: '@',   icon: '⚫', order: 5 },
-      ];
-      const ins = db.prepare(`
-        INSERT INTO platforms (key, label, short, color, home_url, login_url, username_prefix, icon, is_builtin, sort_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-      `);
-      for (const p of builtins) {
-        ins.run(p.key, p.label, p.short, p.color, p.home, p.login, p.prefix, p.icon, p.order);
-      }
-      console.log(`[db] Seeded ${builtins.length} built-in platforms`);
+    const builtins = [
+      { key: 'reddit',    label: 'Reddit',    short: 'R',  color: '#ff4500', home: 'https://www.reddit.com/',           login: 'https://www.reddit.com/login',                    prefix: 'u/',  icon: '🔴', order: 1 },
+      { key: 'redgifs',   label: 'RedGIFs',   short: 'G',  color: '#ff2e74', home: 'https://www.redgifs.com/',          login: 'https://www.redgifs.com/signin',                   prefix: '@',   icon: '🟠', order: 2 },
+      { key: 'x',         label: 'X',         short: '𝕏', color: '#1d9bf0', home: 'https://x.com/home',                login: 'https://x.com/login',                              prefix: '@',   icon: '🔵', order: 3 },
+      { key: 'instagram', label: 'Instagram', short: 'IG', color: '#e1306c', home: 'https://www.instagram.com/',        login: 'https://www.instagram.com/accounts/login/',         prefix: '@',   icon: '🟣', order: 4 },
+      { key: 'tiktok',    label: 'TikTok',    short: 'TT', color: '#25f4ee', home: 'https://www.tiktok.com/foryou',     login: 'https://www.tiktok.com/login',                      prefix: '@',   icon: '⚫', order: 5 },
+      { key: 'onlyfans',  label: 'OnlyFans',  short: 'OF', color: '#00aff0', home: 'https://onlyfans.com/',            login: 'https://onlyfans.com/',                           prefix: '@',   icon: '💙', order: 6 },
+      { key: 'fansly',    label: 'Fansly',    short: 'FS', color: '#1fa2f1', home: 'https://fansly.com/',              login: 'https://fansly.com/',                             prefix: '@',   icon: '💙', order: 7 },
+      { key: 'fanvue',    label: 'Fanvue',    short: 'FV', color: '#8b5cf6', home: 'https://fanvue.com/',              login: 'https://fanvue.com/',                             prefix: '@',   icon: '💜', order: 8 },
+    ];
+    const ins = db.prepare(`
+      INSERT OR IGNORE INTO platforms (key, label, short, color, home_url, login_url, username_prefix, icon, is_builtin, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+    `);
+    for (const p of builtins) {
+      ins.run(p.key, p.label, p.short, p.color, p.home, p.login, p.prefix, p.icon, p.order);
     }
   } catch (e) {
     console.warn('[db] Platform seeding skipped:', e?.message);

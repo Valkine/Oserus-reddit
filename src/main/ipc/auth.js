@@ -132,6 +132,15 @@ function requireManagerOrAdmin(token) {
   return user;
 }
 
+function requireOwnerOrAdmin(token) {
+  const user = userFromToken(token);
+  if (!user) throw new Error('Not authenticated');
+  if (user.role !== 'owner' && user.role !== 'admin') {
+    throw new Error('Owner or admin permissions required');
+  }
+  return user;
+}
+
 function register(ipcMain) {
   // Hydrate the in-memory cache from disk so existing logins survive restart
   try { loadSessionsFromDisk(); } catch {}
@@ -272,4 +281,5 @@ module.exports = register;
 module.exports.userFromToken = userFromToken;
 module.exports.requireAdmin = requireAdmin;
 module.exports.requireManagerOrAdmin = requireManagerOrAdmin;
+module.exports.requireOwnerOrAdmin = requireOwnerOrAdmin;
 module.exports.tickBrowserHeartbeat = tickBrowserHeartbeat;

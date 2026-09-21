@@ -503,6 +503,18 @@ const api = {
       return () => ipcRenderer.removeListener('cloakmanager:binary_progress', listener);
     }
   },
+  license: {
+    get: (data) => ipcRenderer.invoke('license:get', data),
+    activate: (data) => ipcRenderer.invoke('license:activate', data),
+    updateConnection: (data) => ipcRenderer.invoke('license:updateConnection', data),
+    updateEarnings: (data) => ipcRenderer.invoke('license:updateEarnings', data),
+  },
+  shifts: {
+    list: (data) => ipcRenderer.invoke('shifts:list', data),
+    create: (data) => ipcRenderer.invoke('shifts:create', data),
+    update: (data) => ipcRenderer.invoke('shifts:update', data),
+    delete: (data) => ipcRenderer.invoke('shifts:delete', data),
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

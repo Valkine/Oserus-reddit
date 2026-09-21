@@ -15,7 +15,7 @@ const { hasPermission } = require('../permissions');
 // managers/admins and `1=0` for an unauthenticated caller.
 function profileScopeClause(user, alias = 'p') {
   if (!user) return { sql: '1=0', params: [] };
-  if (hasPermission(user, 'profiles.manage')) return { sql: '1=1', params: [] };
+  if (user.role === 'owner' || user.role === 'admin') return { sql: '1=1', params: [] };
   return {
     sql:
       `(${alias}.assigned_user_id = ? OR EXISTS (` +
@@ -28,7 +28,7 @@ function profileScopeClause(user, alias = 'p') {
 function assignedProfileIds(user, teamId) {
   if (!user) return [];
   const db = getDb();
-  if (hasPermission(user, 'profiles.manage')) {
+  if (user.role === 'owner' || user.role === 'admin') {
     const rows = teamId
       ? db.prepare('SELECT id FROM model_profiles WHERE team_id = ?').all(teamId)
       : db.prepare('SELECT id FROM model_profiles').all();
@@ -47,7 +47,7 @@ function assignedProfileIds(user, teamId) {
 // True if `user` may act on `profileId`.
 function canAccessProfile(user, profileId) {
   if (!user) return false;
-  if (hasPermission(user, 'profiles.manage')) return true;
+  if (user.role === 'owner' || user.role === 'admin') return true;
   const db = getDb();
   const row = db.prepare('SELECT assigned_user_id FROM model_profiles WHERE id = ?').get(profileId);
   if (row && row.assigned_user_id === user.id) return true;

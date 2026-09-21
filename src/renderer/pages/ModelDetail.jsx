@@ -75,6 +75,7 @@ export default function ModelDetailPage({ modelId, navigate }) {
 
   const [activityEntries, setActivityEntries] = useState([]);
   const [tab, setTab] = useState('resources'); // resources | analytics | activity
+  const [selectedPlatformFilter, setSelectedPlatformFilter] = useState('all');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const can = useCan();
@@ -355,13 +356,11 @@ export default function ModelDetailPage({ modelId, navigate }) {
             {model.assigned_to_name && <>Assigned to <span style={{ color: 'var(--text-1)' }}>{model.assigned_to_username}</span></>}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* One "Open Browser" for the model. Electron mode: one window,
-              one tab per linked account. CloakManager mode: the model's
-              shared external browser. Mode is resolved server-side. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Master Launch Control for the Model Profile */}
           <button
             title={(model.browser_mode || 'cloakmanager') === 'cloakmanager'
-              ? "Open this model's shared CloakManager browser"
+              ? "Launch this model's CloakBrowser with all accounts and tabs"
               : 'Open one window with a tab per linked account'}
             disabled={launchingId === 'model'}
             onClick={async () => {
@@ -376,8 +375,27 @@ export default function ModelDetailPage({ modelId, navigate }) {
                 setLaunchingId(null);
               }
             }}
-            style={{ ...playBtnStyle, opacity: launchingId === 'model' ? 0.6 : 1 }}
-          >{launchingId === 'model' ? '⏳ Launching…' : '▶ Open Browser'}</button>
+            style={{
+              ...playBtnStyle,
+              background: (model.cloak_profile_name && cloakStatus && cloakStatus[model.cloak_profile_name] === 'running')
+                ? 'var(--ok)'
+                : 'var(--gold)',
+              color: '#0d0c0a',
+              fontWeight: 700,
+              padding: '8px 18px',
+              fontSize: 13,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              opacity: launchingId === 'model' ? 0.6 : 1,
+            }}
+          >
+            {launchingId === 'model'
+              ? '⏳ Launching…'
+              : (model.cloak_profile_name && cloakStatus && cloakStatus[model.cloak_profile_name] === 'running')
+                ? '● Open Browser (Running)'
+                : '▶ Launch Model Browser'}
+          </button>
           <ModeBadge mode={(model.browser_mode || 'cloakmanager') === 'cloakmanager' ? 'cloakmanager' : 'electron'} />
         </div>
       </div>
@@ -565,324 +583,226 @@ export default function ModelDetailPage({ modelId, navigate }) {
             </button>
           ))}
         </div>
-        {canManage && tab === 'resources' && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="dim" style={{ fontSize: 11, marginRight: 4 }}>+ Link account:</span>
-            {PLATFORMS.map((plat) => {
-              const active = showAddPlatform === plat.v;
-              const connected = accounts.filter((a) => (a.platform || 'reddit') === plat.v).length;
-              return (
-                <button
-                  key={plat.v}
-                  onClick={() => startAddFor(plat.v)}
-                  title={connected > 0
-                    ? `Link another ${plat.label} account (${connected} already linked)`
-                    : `Link a new ${plat.label} account to this model`}
-                  style={{
-                    background: active ? plat.color : 'var(--bg-1)',
-                    color: active ? '#fff' : 'var(--text-1)',
-                    borderWidth: 1, borderStyle: 'solid',
-                    borderColor: active ? plat.color : 'var(--border)',
-                    borderRadius: 'var(--radius-pill)', padding: '5px 14px', fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                  }}
-                >
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: plat.color }} />
-                  {plat.label}
-                  {connected > 0 && (
-                    <span className="mono" style={{ fontSize: 10, opacity: 0.75 }}>· {connected}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
-      {tab === 'resources' && PLATFORMS.map(plat => {
-        // Every platform gets its own always-visible section — Reddit,
-        // RedGIFs, X, Instagram, TikTok, and anything added later in
-        // Platforms — none is the "default" and none is hidden when empty.
-        const platAccounts = accounts.filter(a => (a.platform || 'reddit') === plat.v);
-
-        return (
-          <div key={plat.v} style={{ marginBottom: 28 }}>
-            <div style={styles.platformHeader}>
-              <span style={{ fontSize: 20 }}>{plat.icon}</span>
-              <h2>{plat.label} accounts</h2>
-              <span className="mono dim" style={{ fontSize: 12 }}>{platAccounts.length} linked</span>
-              <div style={{ flex: 1 }} />
-              {canManage && (
-                <button className="primary" onClick={() => startAddFor(plat.v)}>
-                  + Add account
-                </button>
-              )}
+      {tab === 'resources' && (
+        <div style={{ marginBottom: 28 }}>
+          {/* Platform Filter Pills & Add Account Action */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedPlatformFilter('all')}
+                style={{
+                  background: selectedPlatformFilter === 'all' ? 'var(--gold)' : 'var(--bg-1)',
+                  color: selectedPlatformFilter === 'all' ? '#0d0c0a' : 'var(--text-1)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-pill)', padding: '5px 14px', fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                All Accounts ({accounts.length})
+              </button>
+              {PLATFORMS.filter(p => accounts.some(a => (a.platform || 'reddit') === p.v)).map(p => {
+                const count = accounts.filter(a => (a.platform || 'reddit') === p.v).length;
+                const active = selectedPlatformFilter === p.v;
+                return (
+                  <button
+                    key={p.v}
+                    type="button"
+                    onClick={() => setSelectedPlatformFilter(p.v)}
+                    style={{
+                      background: active ? p.color : 'var(--bg-1)',
+                      color: active ? '#fff' : 'var(--text-1)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-pill)', padding: '5px 12px', fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    <span>{p.icon}</span>
+                    <span>{p.label}</span>
+                    <span className="mono" style={{ fontSize: 10, opacity: 0.8 }}>({count})</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {platAccounts.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-1)' }}>
-                <div style={{ fontSize: 24, marginBottom: 6, color: 'var(--text-3)' }}>{plat.icon}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14 }}>No {plat.label} accounts linked yet.</div>
-                {canManage && (
-                  <button className="primary" onClick={() => startAddFor(plat.v)}>+ Add account</button>
-                )}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {platAccounts.map(a => {
-                  const browserMode = model?.browser_mode || 'cloakmanager';
-                  const modeConfig = BROWSER_MODES[browserMode] || BROWSER_MODES.electron;
-                  const isRunning = a.cloak_actual_name && cloakStatus[a.cloak_actual_name] === 'running';
-                  const isLaunching = launchingId === a.id;
-                  const launchPct = a.cloak_actual_name && launchProgress[a.cloak_actual_name];
-                  const cmName = a.effective_cm_name || a.cloak_actual_name;
-                  const cmPhase = browserMode === 'cloakmanager' ? getLaunchPhase(cmName) : null;
-                  const cmAttention = getAttention(a.id)
-                    || (a.needs_attention ? { code: (a.attention_reason || '').split(':')[0] || 'not_logged_in', reason: a.attention_reason } : null);
-                  const cmBusy = cmPhase && cmPhase.stage && cmPhase.stage !== 'ready' && cmPhase.stage !== 'failed';
-
-                  // Same-platform conflict detection
-                  const samePlatformAccounts = platAccounts.filter(o => o.id !== a.id);
-                  const hasConflict = samePlatformAccounts.length > 0 && browserMode === 'cloakmanager';
-                  const hasOverride = !!a.cloak_profile_override;
-                  return (
-                    <React.Fragment key={a.id}>
-                  <div style={styles.accountRow}>
-                    <button
-                      className="primary"
-                      disabled={isLaunching}
-                      onClick={() => start(a.id)}
-                      style={{
-                        ...styles.startBtn,
-                        opacity: isLaunching ? 0.6 : 1,
-                        cursor: isLaunching ? 'not-allowed' : 'pointer',
-                      }}
-                      title={isRunning ? 'Browser is running' : `Open ${plat.label} as ${a.username} (${modeConfig.label})`}
-                    >
-                      {isRunning ? '● Running' : isLaunching && launchPct ?
-                        `${Math.round(launchPct.progress * 100)}%…` : isLaunching ? '⏳ Launching…' : '▶ Open Browser'}
-                    </button>
-                    {(cmPhase || cmAttention) && !isRunning && (
-                      <LaunchStatus
-                        compact
-                        phase={cmPhase}
-                        attention={cmAttention}
-                        running={isRunning}
-                        actions={{
-                          fixCredentials: () => startEdit(a),
-                          openBrowser: () => start(a.id),
-                          openProxies: () => navigate('proxies'),
-                          retry: cmBusy ? undefined : () => start(a.id),
-                          startBinary: () => navigate('settings'),
-                          clearAttention: cmAttention?.code ? async () => {
-                            try {
-                              await window.api.accounts.clearAttention({ token, accountId: a.id });
-                              clearAttentionLocal(a.id);
-                              const r = await window.api.accounts.listForProfile({ token, profileId: modelId });
-                              if (r.ok) setAccounts(r.accounts || []);
-                            } catch {}
-                          } : undefined,
-                        }}
-                      />
-                    )}
-                    <span style={{ ...styles.dot, background: STATUS_COLORS[a.status] }} title={a.status} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500 }}>
-                        <span className="mono dim">{plat.usernamePrefix}</span>{a.username}
-                        {a.has_password && <span className="mono dim" style={{ fontSize: 11, marginLeft: 8 }}>🔑</span>}
-                        <ModeBadge mode={browserMode} title={`Browser: ${modeConfig.label} (model-level)`} style={{ marginLeft: 8 }} />
-                        {hasOverride && (
-                          <span style={{
-                            fontSize: 9,
-                            padding: '1px 4px',
-                            borderRadius: 'var(--radius-pill)',
-                            background: 'rgba(155,89,182,0.2)',
-                            color: '#9b59b6',
-                            fontWeight: 600,
-                            marginLeft: 4,
-                          }} title={`Override: ${a.cloak_profile_override}`}>
-                            {a.cloak_profile_override}
-                          </span>
-                        )}
-                        {/* Account running status badge */}
-                        {a.cloak_actual_name && cloakStatus[a.cloak_actual_name] === 'running' && (
-                          <span style={{
-                            position: 'relative',
-                            marginLeft: 8,
-                            background: 'var(--ok)',
-                            color: '#0d0c0a',
-                            fontSize: 8,
-                            padding: '1px 4px',
-                            borderRadius: 'var(--radius-pill)',
-                            fontWeight: 700
-                          }}>
-                            RUNNING
-                          </span>
-                        )}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            const next = !a.autopilot_skip;
-                            try {
-                              const setRes = await window.api.accounts.setAutopilotSkip({ token, accountId: a.id, skip: next });
-                              if (!setRes.ok) throw new Error(setRes.error);
-                              const r = await window.api.accounts.listForProfile({ token, profileId: modelId });
-                              if (r.ok) setAccounts(r.accounts || []);
-                            } catch (err) {
-                              toast('err', err.message || 'Failed to update autopilot skip');
-                            }
-                          }}
-                          title={a.autopilot_skip ? 'Excluded from autopilot' : 'Included in autopilot (when master is running)'}
-                          style={{
-                            fontSize: 8, padding: '2px 6px', borderRadius: 'var(--radius-pill)',
-                            fontFamily: 'monospace', fontWeight: 700,
-                            background: a.autopilot_skip ? 'rgba(180,90,90,0.2)' : 'rgba(122,154,90,0.2)',
-                            color: a.autopilot_skip ? 'var(--danger-fg)' : 'var(--success-fg)',
-                            border: 'none', cursor: 'pointer', marginLeft: 4,
-                          }}
-                        >{a.autopilot_skip ? 'SKIP' : 'AUTO'}</button>
-                        {/* Account launch progress badge */}
-                        {a.cloak_actual_name && launchProgress[a.cloak_actual_name] && launchProgress[a.cloak_actual_name].progress < 1 && (
-                          <span style={{
-                            position: 'relative',
-                            marginLeft: 8,
-                            background: 'var(--blue)',
-                            color: '#fff',
-                            fontSize: 8,
-                            padding: '1px 4px',
-                            borderRadius: 'var(--radius-pill)',
-                            fontWeight: 700,
-                            animation: 'pulse 1s infinite'
-                          }}>
-                            {Math.round(launchProgress[a.cloak_actual_name].progress * 100)}%
-                          </span>
-                        )}
-                      </div>
-                      {a.notes && <div className="muted" style={{ fontSize: 12 }}>{a.notes}</div>}
-                    </div>
-                    {a.proxy_label && (
-                      <span className="mono dim" style={{ fontSize: 11 }}>
-                        via {a.proxy_label}
-                      </span>
-                    )}
-                    <select
-                      value={a.status}
-                      onChange={(e) => quickStatus(a.id, e.target.value)}
-                      style={styles.miniSelect}
-                    >
-                      {STATUS_OPTIONS.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
-                    </select>
-                    {canManage && (
-                      <>
-                        <button className="ghost" onClick={() => startEdit(a)}>Edit</button>
-                        {a.cloak_actual_name && (
-                          <button className="ghost" style={{ fontSize: 11, padding: '4px 8px' }} onClick={async () => {
-                            toast('info', 'Testing CDP connection…');
-                            const r = await window.api.cloakmanager.testCDPConnection({ token, accountId: a.id });
-                            if (r.ok) toast('ok', r.message || 'CDP connection OK');
-                            else toast('err', r.error || 'CDP test failed');
-                          }}>Test CDP</button>
-                        )}
-                        <button className="danger" onClick={() => del(a.id)}>Remove</button>
-                      </>
-                    )}
-                  </div>
-                  {/* Same-platform conflict warning */}
-                  {hasConflict && !hasOverride && (
-                    <div style={{
-                      marginLeft: 38,
-                      padding: '8px 12px',
-                      background: 'rgba(180,90,90,0.08)',
-                      border: '1px solid rgba(180,90,90,0.2)',
-                      borderRadius: 'var(--radius)',
-                      fontSize: 11,
-                      color: 'var(--text-2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                    }}>
-                      <span style={{ fontSize: 14 }}>⚠️</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 2 }}>Same-platform conflict</div>
-                        <div>
-                          This account shares a platform ({plat.label}) with {samePlatformAccounts.length} other account{samePlatformAccounts.length > 1 ? 's' : ''} on this model.
-                          Sharing a CM browser instance means cookies overlap — only one {plat.label} account can be logged in at a time.
-                        </div>
-                      </div>
-                      <button
-                        className="primary"
-                        style={{ fontSize: 11, padding: '4px 10px', whiteSpace: 'nowrap' }}
-                        onClick={async () => {
-                          const overrideName = sanitizeForCmName(`model-${modelId}-${model.name}-${a.platform}${a.id}`);
-                          const r = await window.api.accounts.setCloakOverride({ token, accountId: a.id, overrideName });
-                          if (r.ok) {
-                            // Create the CM profile for the override
-                            setOperationMessage(`Creating CM instance "${overrideName}"...`);
-                            try {
-                              const cr = await window.api.cloakmanager.createProfile({
-                                token, accountId: a.id, accountConfig: { os: 'windows' },
-                              });
-                              if (cr.ok) setOperationMessage(`Instance "${overrideName}" created`);
-                              else setOperationMessage(`Failed: ${friendlyCmError(cr.error)}`);
-                            } catch (err) {
-                              setOperationMessage(`Error: ${friendlyCmError(err.message)}`);
-                            }
-                            setTimeout(() => setOperationMessage(null), 4000);
-                            await load();
-                          }
-                        }}
-                      >
-                        Create separate instance
-                      </button>
-                      <button
-                        className="ghost"
-                        style={{ fontSize: 11, padding: '4px 10px' }}
-                        onClick={async () => {
-                          // Just dismiss — keep shared
-                          toast('info', 'Keeping shared instance. You can create a separate instance later from Edit.');
-                        }}
-                      >
-                        Keep shared
-                      </button>
-                    </div>
-                  )}
-                  {hasConflict && hasOverride && (
-                    <div style={{
-                      marginLeft: 38,
-                      padding: '6px 12px',
-                      background: 'rgba(155,89,182,0.08)',
-                      border: '1px solid rgba(155,89,182,0.2)',
-                      borderRadius: 'var(--radius)',
-                      fontSize: 11,
-                      color: 'var(--text-2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                    }}>
-                      <span>👻</span>
-                      <span>Separate CM instance: <span className="mono" style={{ color: '#9b59b6' }}>{a.cloak_profile_override}</span></span>
-                      <button
-                        className="ghost"
-                        style={{ fontSize: 10, padding: '2px 8px', marginLeft: 'auto' }}
-                        onClick={async () => {
-                          const r = await window.api.accounts.setCloakOverride({ token, accountId: a.id, overrideName: null });
-                          if (r.ok) await load();
-                        }}
-                      >
-                        Revert to shared
-                      </button>
-                    </div>
-                  )}
-                    </React.Fragment>
-                  );
-                })}
+            {canManage && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select
+                  value=""
+                  onChange={(e) => { if (e.target.value) startAddFor(e.target.value); }}
+                  style={{ fontSize: 12, padding: '5px 10px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-1)' }}
+                >
+                  <option value="">+ Link platform…</option>
+                  {PLATFORMS.map(p => (
+                    <option key={p.v} value={p.v}>{p.label}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => startAddFor(selectedPlatformFilter !== 'all' ? selectedPlatformFilter : 'reddit')}
+                  style={{ fontSize: 12, padding: '5px 14px' }}
+                >
+                  + Add account
+                </button>
               </div>
             )}
           </div>
-        );
-      })}
+
+          {/* Accounts List or Single Clean Empty State */}
+          {accounts.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-1)' }}>
+              <div style={{ fontSize: 32, marginBottom: 8, color: 'var(--text-3)' }}>◈</div>
+              <h3 style={{ margin: '0 0 6px', color: 'var(--text-0)' }}>No accounts linked yet</h3>
+              <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                Link Reddit, X, Instagram, or TikTok accounts to organize this model's online presence.
+              </div>
+              {canManage && (
+                <button type="button" className="primary" onClick={() => startAddFor('reddit')}>+ Link First Account</button>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {accounts
+                .filter(a => selectedPlatformFilter === 'all' || (a.platform || 'reddit') === selectedPlatformFilter)
+                .map(a => {
+                  const plat = PLATFORMS.find(p => p.v === (a.platform || 'reddit')) || { label: a.platform, icon: '🌐', color: 'var(--gold)', usernamePrefix: '@' };
+                  const browserMode = model?.browser_mode || 'cloakmanager';
+                  const modeConfig = BROWSER_MODES[browserMode] || BROWSER_MODES.electron;
+                  const hasOverride = !!a.cloak_profile_override;
+                  const samePlatformAccounts = accounts.filter(o => o.id !== a.id && (o.platform || 'reddit') === (a.platform || 'reddit'));
+                  const hasConflict = samePlatformAccounts.length > 0 && browserMode === 'cloakmanager';
+
+                  return (
+                    <React.Fragment key={a.id}>
+                      <div style={{ ...styles.accountRow, padding: '10px 14px' }}>
+                        <span style={{ fontSize: 16, marginRight: 2 }} title={plat.label}>{plat.icon}</span>
+                        <span style={{ ...styles.dot, background: STATUS_COLORS[a.status] }} title={a.status} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span className="mono" style={{ color: 'var(--text-0)' }}>
+                              <span className="dim">{plat.usernamePrefix}</span>{a.username}
+                            </span>
+                            {a.has_password && <span className="mono dim" title="Password stored securely" style={{ fontSize: 11 }}>🔑</span>}
+                            <span style={{
+                              fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-pill)',
+                              background: 'var(--bg-2)', color: 'var(--text-2)', border: '1px solid var(--border)'
+                            }}>
+                              {plat.label}
+                            </span>
+                            {hasOverride && (
+                              <span style={{
+                                fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-pill)',
+                                background: 'rgba(155,89,182,0.2)', color: '#9b59b6', fontWeight: 600,
+                              }} title={`Dedicated instance: ${a.cloak_profile_override}`}>
+                                {a.cloak_profile_override}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation(); e.preventDefault();
+                                const next = !a.autopilot_skip;
+                                try {
+                                  const setRes = await window.api.accounts.setAutopilotSkip({ token, accountId: a.id, skip: next });
+                                  if (!setRes.ok) throw new Error(setRes.error);
+                                  const r = await window.api.accounts.listForProfile({ token, profileId: modelId });
+                                  if (r.ok) setAccounts(r.accounts || []);
+                                } catch (err) {
+                                  toast('err', err.message || 'Failed to update autopilot skip');
+                                }
+                              }}
+                              title={a.autopilot_skip ? 'Excluded from autopilot' : 'Included in autopilot'}
+                              style={{
+                                fontSize: 9, padding: '2px 6px', borderRadius: 'var(--radius-pill)',
+                                fontFamily: 'monospace', fontWeight: 700,
+                                background: a.autopilot_skip ? 'rgba(180,90,90,0.2)' : 'rgba(122,154,90,0.2)',
+                                color: a.autopilot_skip ? 'var(--danger-fg)' : 'var(--success-fg)',
+                                border: 'none', cursor: 'pointer',
+                              }}
+                            >
+                              {a.autopilot_skip ? 'SKIP' : 'AUTO'}
+                            </button>
+                          </div>
+                          {a.notes && <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{a.notes}</div>}
+                        </div>
+
+                        {a.proxy_label && (
+                          <span className="mono dim" style={{ fontSize: 11 }}>via {a.proxy_label}</span>
+                        )}
+
+                        <select
+                          value={a.status}
+                          onChange={(e) => quickStatus(a.id, e.target.value)}
+                          style={styles.miniSelect}
+                        >
+                          {STATUS_OPTIONS.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
+                        </select>
+
+                        {canManage && (
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <button type="button" className="ghost" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => startEdit(a)}>Edit</button>
+                            {a.cloak_actual_name && (
+                              <button type="button" className="ghost" style={{ fontSize: 11, padding: '4px 8px' }} onClick={async () => {
+                                toast('info', 'Testing CDP connection…');
+                                const r = await window.api.cloakmanager.testCDPConnection({ token, accountId: a.id });
+                                if (r.ok) toast('ok', r.message || 'CDP connection OK');
+                                else toast('err', r.error || 'CDP test failed');
+                              }}>Test CDP</button>
+                            )}
+                            <button type="button" className="danger" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => del(a.id)}>Remove</button>
+                          </div>
+                        )}
+                      </div>
+
+                      {hasConflict && !hasOverride && (
+                        <div style={{
+                          marginLeft: 24, padding: '8px 12px',
+                          background: 'rgba(180,90,90,0.08)', border: '1px solid rgba(180,90,90,0.2)',
+                          borderRadius: 'var(--radius)', fontSize: 11, color: 'var(--text-2)',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                        }}>
+                          <span style={{ fontSize: 14 }}>⚠️</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 2 }}>Shared platform instance</div>
+                            <div>Multiple {plat.label} accounts share this model's browser. Only one can be active simultaneously unless isolated.</div>
+                          </div>
+                          <button
+                            type="button"
+                            className="primary"
+                            style={{ fontSize: 11, padding: '4px 10px', whiteSpace: 'nowrap' }}
+                            onClick={async () => {
+                              const overrideName = sanitizeForCmName(`model-${modelId}-${model.name}-${a.platform}${a.id}`);
+                              const r = await window.api.accounts.setCloakOverride({ token, accountId: a.id, overrideName });
+                              if (r.ok) {
+                                setOperationMessage(`Creating instance "${overrideName}"...`);
+                                try {
+                                  const cr = await window.api.cloakmanager.createProfile({
+                                    token, accountId: a.id, accountConfig: { os: 'windows' },
+                                  });
+                                  if (cr.ok) setOperationMessage(`Instance "${overrideName}" created`);
+                                  else setOperationMessage(`Failed: ${friendlyCmError(cr.error)}`);
+                                } catch (err) {
+                                  setOperationMessage(`Error: ${friendlyCmError(err.message)}`);
+                                }
+                                load();
+                              }
+                            }}
+                          >
+                            Isolate Instance
+                          </button>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      )}
 
       {(showAddPlatform || editing) && (() => {
         const modalPlat = PLATFORMS.find(p => p.v === (editing ? editing.platform : showAddPlatform)) || PLATFORMS[0];

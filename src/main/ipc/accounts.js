@@ -168,9 +168,9 @@ function register(ipcMain) {
 
       const where = [];
       const params = [];
-      // Holders of profiles.manage see everything; everyone else only sees
-      // accounts on profiles they're assigned to.
-      if (!hasPermission(user, 'profiles.manage')) {
+      // Owner and admin see all accounts; employees strictly only see
+      // accounts belonging to profiles they are assigned to.
+      if (user.role !== 'owner' && user.role !== 'admin') {
         where.push('(p.assigned_user_id = ? OR EXISTS (SELECT 1 FROM profile_assignments pa WHERE pa.profile_id = p.id AND pa.user_id = ?))');
         params.push(user.id, user.id);
       }
