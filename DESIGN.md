@@ -10,9 +10,9 @@
 ### 1.1 What is Oserus Management?
 **Oserus Management** is an all-in-one desktop workstation engineered specifically for OnlyFans, Fansly, and Fanvue creator management agencies. 
 
-Running a 7-to-8 figure creator agency requires coordinating two distinct worlds:
+Running a 7-to-8 figure creator agency requires coordinating two distinct operational worlds:
 1. **Traffic Generation (Top of Funnel)**: Running dozens of accounts across Reddit, X (Twitter), Instagram, and TikTok to funnel prospective fans. This requires industrial-strength browser antidetect isolation, unique fingerprints, and dedicated residential proxies so social platforms do not link and ban the accounts.
-2. **Monetization & CRM (Bottom of Funnel)**: Messaging paying fans 24/7 on OnlyFans, Fansly, and Fanvue to sell pay-per-view (PPV) content, collect tips, and maintain relationships. This requires high-speed multi-model chatting, fan spend tracking, and structured shifts for global chatters.
+2. **Monetization & CRM (Bottom of Funnel)**: Messaging paying fans 24/7 on OnlyFans, Fansly, and Fanvue to sell pay-per-view (PPV) content, collect tips, and maintain subscriber retention. This requires high-speed multi-model chatting, fan spend tracking, and structured shifts for global chatters.
 
 Prior to Oserus, agency owners were forced to stitch together 4–6 separate software tools:
 - **AdsPower / Multilogin**: For browser isolation and proxy management ($100–$500/mo).
@@ -30,13 +30,13 @@ Prior to Oserus, agency owners were forced to stitch together 4–6 separate sof
 
 ---
 
-## 2. The User Complaints & The Anti-Robot Aesthetic Philosophy
+## 2. The User Complaints, Anti-Robot Philosophy & Typography
 
 ### 2.1 The Specific User Complaints That Drove This Architecture
 Every architectural and UI decision in this specification originates from direct operator feedback. Any AI modifying this codebase must understand the pain behind each rule:
 
 1. **"The Model page is sloppy, cluttered, and overwhelming."**
-   - *The Old Mistake*: Previous builds dumped administrative controls directly onto every model card: a Primary Manager dropdown, an "Add Member" dropdown + role selector + submit button, a list of team members with individual role dropdowns, a main email text input, and a proxy dropdown. Each card was 600px tall and turning the page into an unusable wall of inputs.
+   - *The Old Mistake*: Previous builds dumped administrative controls directly onto every model card: a Primary Manager dropdown, an "Add Member" dropdown + role selector + submit button, a list of team members with individual role dropdowns, a main email text input, and a proxy dropdown. Each card was 600px tall and turned the page into an unusable wall of inputs.
    - *The Fix*: **Strict Card Diet**. All configuration was moved into a clean, dedicated `⚙ Edit Model` modal. The model card face was trimmed down to ~200px: avatar, model name, niche pill, platform account badges, proxy tag, team avatar pills, and a 1-click hero launch button.
 2. **"Why are there 5 giant dashed empty boxes stacked on top of each other?"**
    - *The Old Mistake*: On `ModelDetail.jsx`, if a model didn't have RedGIFs, X, Instagram, TikTok, or OnlyFans connected, the UI rendered five giant empty dashed dropboxes requiring 800px of scrolling.
@@ -50,9 +50,9 @@ Every architectural and UI decision in this specification originates from direct
 5. **"Dual-Timezone Scheduling: Workers shouldn't have to calculate timezone offsets."**
    - *The Old Mistake*: Agency owners in New York (EST) scheduled shifts like "9 AM - 5 PM". Global chatters in Manila (PHT, UTC+8) had to manually convert times, leading to missed shifts and unstaffed accounts.
    - *The Fix*: Built an automatic dual-timezone engine. The Owner inputs shifts in Agency Time (e.g. EST); workers automatically see shifts converted to their local detected timezone (e.g. PHT) with the agency time displayed alongside for reference.
-6. **"Earnings-scaled monthly keys instead of per-seat billing."**
-   - *The Old Mistake*: Charging per user seat discourages agencies from hiring more chatters and VAs.
-   - *The Fix*: Implemented a monthly license key model scaled by **Month-To-Date (MTD) Gross Earnings** across connected OnlyFans, Fansly, and Fanvue accounts.
+6. **"Earnings-scaled monthly keys instead of per-seat billing, modeled on Infloww's creator earnings scale up to $250k and percentage after."**
+   - *The Old Mistake*: Rigid, arbitrary tiers ($10k/$50k/$100k) or charging per-seat penalizes agencies for hiring chatters and fails when agencies do $150k-$500k/mo.
+   - *The Fix*: Adopted the **Infloww Creator Monthly Earnings scale** (up to $250k/mo across 9 graduated brackets) with dynamic **1.0% volume scaling** for operations exceeding $250k/month.
 
 ---
 
@@ -74,11 +74,58 @@ Every architectural and UI decision in this specification originates from direct
 2. **High Data Density with Intentional Breathing Room**:
    - Operators manage 20–100 accounts. Tables should have compact row heights (`36px` to `44px`), clear column headers, and monospace font for dates, times, and financial numbers (`font-variant-numeric: tabular-nums`).
 3. **Pill Badges over Giant Text**:
-   - Use compact pill badges for status: `[ ● Active ]`, `[ 🔑 Growth Tier ]`, `[ 🌐 US Proxy ]`.
+   - Use compact pill badges for status: `[ ● Active ]`, `[ 🔑 Bracket 5 ($60k–$75k) ]`, `[ 🌐 US Proxy ]`.
 4. **Live Visual Telemetry**:
    - When a browser instance is running, display a pulsing green dot (`animation: pulse 2s infinite`). When a proxy is failing, show a crisp warning badge.
 5. **No Form Sprawl on Cards**:
    - Never embed multi-field forms on index cards. Cards are for *monitoring and triggering action*. Configuration belongs in modals, slide-overs, or dedicated detail tabs.
+
+---
+
+### 2.3 The Unique Typography System
+
+To guarantee the application does not feel generic or derivative, Oserus relies on a bespoke three-tier font stack:
+
+```css
+/* Display & Brand Headlines (Luxury, Avant-Garde Geometric Personality) */
+--font-display: 'Syne', -apple-system, sans-serif;
+
+/* Workstation UI & Body Copy (Ultra-Clean, High-Legibility Geometric Grotesque) */
+--font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+/* Monospace, Currency, Shift Times, and Proxy Telemetry (Strict Tabular Lining) */
+--font-mono: 'JetBrains Mono', ui-monospace, monospace;
+```
+
+#### Why This Font Stack?
+1. **`Syne` (Headlines, Hero Banners, Section Titles)**:
+   - Unlike generic Inter or Roboto, `Syne` is an avant-garde display typeface created for high-fashion, luxury, and high-end creative direction.
+   - At bold weights (`700`, `800`), its wide proportions, distinct geometric curves, and tight letter-spacing (`-0.025em`) immediately establish that Oserus is an elite agency tool.
+2. **`Plus Jakarta Sans` (UI Components, Tables, Form Labels, Action Buttons)**:
+   - High legibility at small sizes (`11px` to `13px`).
+   - Clean, open apertures prevent visual fatigue during 12-hour chatter shifts.
+   - Distinctive geometric details (e.g. clean curved terminals) keep the interface feeling crisp and intentional.
+3. **`JetBrains Mono` (Financial Numbers, Timestamps, Shift Ranges, Proxy IPs)**:
+   - Mandatory for all numbers (`$34,250.00`), IP addresses (`192.168.1.1:8000`), license keys, and logs.
+   - Enforces `font-variant-numeric: tabular-nums` so columns of numbers line up perfectly without horizontal jitter.
+
+---
+
+### 2.4 Non-Generic Layout Principles
+
+Future AI agents must observe these layout composition guidelines:
+
+1. **Asymmetrical Command Surfaces**:
+   - Do NOT build monotonous 3-column card layouts.
+   - Use purpose-driven asymmetric grids: e.g. a wide primary telemetry feed (`1.4fr`) paired with an executive control strip (`1fr`).
+2. **Tabular-First Density**:
+   - When displaying lists of models, accounts, or shifts, always offer high-density spreadsheet tables alongside visual cards.
+   - Power operators managing 30 models prefer a 40px table row over a 300px card.
+3. **Micro-Pills & Avatar Clusters**:
+   - Render multi-user assignments as overlapping circular avatar chips (`margin-left: -8px; border: 2px solid var(--bg-1)`).
+   - Keep status tags minimal: `[ ● Running ]` instead of lengthy paragraphs.
+4. **Slide-Overs & Dialog Overlays for Deep Config**:
+   - Primary pages remain clean overview dashboards; complex workflows (e.g. Editing a Model, Adding an Account, Scheduling a Shift) open in focused modal dialogs with clear cancel/save actions.
 
 ---
 
@@ -172,55 +219,100 @@ While Pillar 1 drives top-of-funnel traffic from social media, Pillar 2 converts
 
 ---
 
-## 6. Earnings-Scaled Monthly Licensing & Tier Architecture
+## 6. Infloww-Style Graduated Earnings Scale & Over-Cap Percentage Scaling
 
-### 6.1 Concept & Billing Mechanics
-Agencies pay a monthly subscription key. Instead of charging per user seat, the license tier scales with the agency's **Month-to-Date (MTD) Gross Earnings** across OnlyFans, Fansly, and Fanvue:
+### 6.1 The Creator Monthly Earnings Pricing Model
+In creator management agencies, per-seat pricing models fail because they penalize agencies for hiring global chatter rotations. Furthermore, rigid arbitrary tiers ($10k / $50k / $100k) force disruptive upgrade conversations.
 
-| Tier Key | Display Name | Monthly Gross Cap | Target Agency Scale |
-|---|---|---|---|
-| `starter` | **Starter Agency** | \$10,000 / month | 1–2 Models, boutique solo agency |
-| `growth` | **Growth Agency** | \$50,000 / month | 3–8 Models, growing team |
-| `scale` | **Scale Agency** | \$100,000 / month | 8–20 Models, full chatter roster |
-| `enterprise` | **Enterprise Agency** | Unlimited Gross | Large agency conglomerate |
+Oserus uses the **Infloww-style Graduated Creator Monthly Earnings Scale** up to **$250,000 / month**, with **Dynamic Percentage Scaling** above $250,000:
 
-### 6.2 License Validation & Expiration Logic
-- Licenses have an explicit expiration date (`expires_at`, e.g. `2026-10-21T00:00:00Z`).
-- The system checks both **Expiration Date** and **MTD Gross Revenue**:
-  - If current date > `expires_at`: Status becomes `'expired'`. System locks background automation and prompts for key renewal.
-  - If MTD Gross Revenue > `monthly_earnings_cap`: Status becomes `'capped'`. System displays an upgrade prompt (`Upgrade to Scale Tier`).
-- IPC channel `license:get-status` returns:
-  ```json
-  {
-    "status": "active",
-    "tier": "growth",
-    "tierName": "Growth Agency ($50,000/mo cap)",
-    "monthlyCap": 50000.0,
-    "grossEarnings": 34250.0,
-    "netEarnings": 27400.0,
-    "daysRemaining": 24,
-    "capUsagePercent": 68.5,
-    "expiresAt": "2026-10-21T00:00:00Z",
-    "platformBreakdown": {
-      "onlyfans": 26400.0,
-      "fansly": 5850.0,
-      "fanvue": 2000.0
-    }
-  }
-  ```
+| Bracket | Monthly Gross Creator Earnings Bracket | Monthly Software Fee |
+|---|---|---|
+| **Bracket 1** | \$0 – \$5,000 / month | \$40 / month |
+| **Bracket 2** | \$5,000.01 – \$15,000 / month | \$75 / month |
+| **Bracket 3** | \$15,000.01 – \$30,000 / month | \$150 / month |
+| **Bracket 4** | \$30,000.01 – \$60,000 / month | \$250 / month |
+| **Bracket 5** | \$60,000.01 – \$75,000 / month | \$400 / month *(Infloww standard)* |
+| **Bracket 6** | \$75,000.01 – \$100,000 / month | \$550 / month |
+| **Bracket 7** | \$100,000.01 – \$150,000 / month | \$750 / month |
+| **Bracket 8** | \$150,000.01 – \$200,000 / month | \$950 / month |
+| **Bracket 9** | \$200,000.01 – \$250,000 / month | \$1,200 / month |
+| **Enterprise Scale** | **\$250,000.01+ / month** | **\$1,200 base + 1.0% on volume over \$250k** |
+
+### 6.2 Over-Cap Percentage Scaling Mechanics (> $250k)
+When an agency crosses \$250,000 / month in gross creator revenue:
+- The system **NEVER** shuts off or hard-caps operations.
+- The software automatically switches to **Percentage Scaling Mode**:
+  $$\text{Monthly Fee} = \$1,200 + 0.01 \times (\text{Total MTD Gross} - \$250,000)$$
+- **Example**: If an agency generates \$350,000 in gross earnings this month:
+  - Base Fee: \$1,200
+  - Volume Commission (1% on \$100,000 excess): \$1,000
+  - Total Fee: \$2,200 / month
+- This aligns agency success directly with software cost without artificial barriers.
 
 ### 6.3 Executive Dashboard Meter (`src/renderer/pages/Dashboard.jsx`)
-The agency owner sees a prominent executive revenue strip at the top of the Dashboard:
+The agency owner sees a live, real-time telemetry card on the Dashboard:
 - **MTD Gross Revenue**: Large formatted number (e.g. `$34,250.00`).
-- **Tier Badge**: `[ 🔑 Growth Agency: Active ]`.
-- **Interactive Cap Bar**: Visual bar showing percentage used (`68.5% of $50,000 cap · 24 days left in cycle`).
-- **Platform Pills**: Individual pills for OnlyFans (`$26,400`), Fansly (`$5,850`), and Fanvue (`$2,000`).
+- **Active Bracket Badge**: `[ 🔑 Earnings Tier: $30k–$60k/mo ($250/mo) ]`.
+- **Infloww Scale Progress Bar**:
+  - Below \$250k: Shows percentage progress toward the \$250,000 ceiling.
+  - Above \$250k: Glowing gold-to-emerald gradient bar indicating active 1.0% volume scaling.
+- **Platform Breakdown**: OnlyFans (`$24,500`), Fansly (`$6,200`), and Fanvue (`$2,100`).
 
 ---
 
-## 7. Role-Based Access Control & Strict Model Isolation
+## 7. The Real-Time Live Telemetry Engine ("The Live Stuff")
 
-### 7.1 The Root Owner (`role: 'owner'`)
+A core differentiator of Oserus is its **live telemetry engine**. The workstation is not a static webpage; it actively tracks live machine states, browser instances, team heartbeats, and financial transactions.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 REAL-TIME LIVE TELEMETRY                               │
+├───────────────────────────────┬───────────────────────────────┬────────────────────────┤
+│     BROWSER & CDP TELEMETRY   │     TEAM & SHIFT PRESENCE     │    CREATOR TRANSACTIONS│
+├───────────────────────────────┼───────────────────────────────┼────────────────────────┤
+│ • CDP Heartbeat (Port 7331)   │ • Chatter Active / Idle Dots  │ • Live Tip Ticker      │
+│ • Live Uptime Clock (1h 42m)  │ • Active Shift Countdown Pill │ • PPV Purchase Stream  │
+│ • Proxy Latency (🟢 42ms)    │ • Shift Clock-in / Clock-out  │ • Real-time MTD Gross  │
+│ • Active Tab / Omnibox URL    │ • Chatter Collision Avoidance │ • Animated Revenue Num │
+└───────────────────────────────┴───────────────────────────────┴────────────────────────┘
+```
+
+### 7.1 Live Browser & CDP Telemetry
+- **CDP Heartbeat**: The main process polls or maintains a WebSocket link to the CloakManager CDP backend (port `7331`).
+- **Live State Pill**:
+  - `● Running`: Pulsing emerald dot (`animation: pulse 2s infinite`).
+  - Uptime clock: Displays elapsed runtime since launch (`Running: 2h 15m`).
+- **Proxy Latency Ping**: Tests proxy health and round-trip time every 5 minutes (`🟢 42ms US-East Res`). If a residential proxy dies, the status pill instantly switches to `🔴 Proxy Unreachable`.
+
+### 7.2 Live Team Presence & Shift Telemetry
+- **Heartbeat Protocol**: Staff workstations send a lightweight presence ping every 60 seconds (`users:heartbeat`).
+- **Presence Indicators**:
+  - `🟢 Active Now`: Worker has interacted within the last 5 minutes.
+  - `🟡 Idle`: No activity for 5–20 minutes.
+  - `⚪ Offline`: Disconnected or off-shift.
+- **Active Shift Pill on Model Cards**:
+  - Model cards display which chatter is currently assigned and actively working:  
+    `[ 🟢 Sarah on shift · 3h 15m left ]`
+  - Eliminates agency owner anxiety over whether night shifts are staffed.
+
+### 7.3 Live Creator Platform Transactions
+- **Transaction Stream**:
+  - Live websocket or polling connection to OnlyFans, Fansly, and Fanvue.
+  - Renders live incoming tip alerts (`+$50.00 from @whale_fan on Model Luna`).
+  - MTD Gross total increments live with smooth number animation (`CountUp`).
+
+### 7.4 Infloww-Style Chatter Collision Avoidance
+- When multiple chatters work on the same model or agency inbox:
+  - If Chatter A opens a fan's chat thread, Chatter A's avatar chip appears on the chat header: `Sarah is viewing this chat`.
+  - If Chatter A begins typing, Chatter B's input box is gently locked with a notification: `Sarah is currently typing…`.
+  - Prevents the dreaded agency mistake of two chatters sending contradictory messages to the same high-paying subscriber.
+
+---
+
+## 8. Role-Based Access Control & Strict Model Isolation
+
+### 8.1 The Root Owner (`role: 'owner'`)
 The operator who purchased the monthly license key is automatically the root **Owner**.
 - **Owner-Exclusive Powers**:
   1. Only the Owner (or designated Admin) can create, edit, or delete Model Profiles (`requireOwnerOrAdmin`).
@@ -229,7 +321,7 @@ The operator who purchased the monthly license key is automatically the root **O
   4. Only the Owner can view overall agency financial metrics, gross revenue, and license keys.
   5. Only the Owner can create shift schedules.
 
-### 7.2 Strict Employee Model Isolation
+### 8.2 Strict Employee Model Isolation
 > [!IMPORTANT]
 > **Employees (chatters, VAs, posters) must NEVER see models they are not explicitly assigned to.**
 > - If employee `Sarah` is assigned to `Model Luna`, Sarah's workstation strictly displays `Model Luna`.
@@ -244,12 +336,12 @@ The operator who purchased the monthly license key is automatically the root **O
 
 ---
 
-## 8. Dual-Timezone Shift Scheduling Engine
+## 9. Dual-Timezone Shift Scheduling Engine
 
-### 8.1 The Agency Problem
+### 9.1 The Agency Problem
 Agency owners typically operate in US Eastern Time (`America/New_York`), Central European Time, or UK Time. Chatters are globally distributed—predominantly in the Philippines (`Asia/Manila`, UTC+8) or Latin America. Converting times manually causes confusion, missed shift handoffs, and neglected fans.
 
-### 8.2 The Dual-Timezone Solution (`src/main/ipc/shifts.js` & `src/renderer/pages/Team.jsx`)
+### 9.2 The Dual-Timezone Solution (`src/main/ipc/shifts.js` & `src/renderer/pages/Team.jsx`)
 - **Database Schema**:
   ```sql
   CREATE TABLE IF NOT EXISTS shifts (
@@ -275,7 +367,24 @@ Agency owners typically operate in US Eastern Time (`America/New_York`), Central
 
 ---
 
-## 9. SQLite Database Schema Reference
+## 10. Model System & UI Cleanliness (The AdsPower Model)
+
+### 10.1 Models Overview Page (`src/renderer/pages/Profiles.jsx`)
+- **View Modes**:
+  - `⊞ Grid View`: Clean, compact cards (~200px tall). Shows colored avatar circle, Model Name, Niche pill, CloakManager/Electron pill, Running indicator, Accounts count, Proxy badge, Assigned team avatars, and master `[ ▶ Open Browser ]` button.
+  - `☰ AdsPower Table View`: High-density spreadsheet table with columns: Model, Niche, Accounts, Model Proxy, Assigned Team, Status, and Actions (`[ ▶ Open Browser ]`, `Manage →`, `⚙ Edit`).
+- **Dedicated Settings Modal**:
+  - Clicking `⚙` opens a comprehensive modal to edit name, niche, proxy, main email, brand voice, and team assignments.
+
+### 10.2 Model Detail Page (`src/renderer/pages/ModelDetail.jsx`)
+- **Unified Accounts Table**:
+  - Single master accounts table filtered by platform pills (`All Accounts`, `Reddit`, `X`, `Instagram`, `TikTok`, `OnlyFans`, `Fansly`, `Fanvue`).
+  - No empty dashed boxes.
+  - One hero launch button at the top (`[ ▶ Launch Model Browser ]`).
+
+---
+
+## 11. SQLite Database Schema Reference
 
 All tables are defined and migrated in `src/main/db.js` using `better-sqlite3`:
 
@@ -285,9 +394,9 @@ CREATE TABLE IF NOT EXISTS app_license (
   id INTEGER PRIMARY KEY DEFAULT 1,
   license_key TEXT NOT NULL,
   owner_email TEXT,
-  tier TEXT NOT NULL DEFAULT 'growth',
-  tier_name TEXT NOT NULL DEFAULT 'Growth Agency ($50,000/mo cap)',
-  monthly_earnings_cap REAL NOT NULL DEFAULT 50000.0,
+  tier TEXT NOT NULL DEFAULT 'dynamic_scale',
+  tier_name TEXT NOT NULL DEFAULT 'Graduated Scale (up to $250k + 1% Over-Cap)',
+  monthly_earnings_cap REAL NOT NULL DEFAULT 250000.0,
   expires_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -295,26 +404,24 @@ CREATE TABLE IF NOT EXISTS app_license (
 
 -- 2. Creator Platform Connections (OnlyFans, Fansly, Fanvue)
 CREATE TABLE IF NOT EXISTS platform_connections (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  platform TEXT NOT NULL, -- 'onlyfans' | 'fansly' | 'fanvue'
-  profile_id INTEGER REFERENCES model_profiles(id) ON DELETE CASCADE,
-  handle TEXT NOT NULL,
-  api_key TEXT,
-  session_token TEXT,
-  status TEXT NOT NULL DEFAULT 'connected',
-  connected_at TEXT NOT NULL DEFAULT (datetime('now'))
+  platform TEXT PRIMARY KEY,
+  connected INTEGER NOT NULL DEFAULT 0,
+  account_handle TEXT,
+  api_key_encrypted TEXT,
+  session_token_encrypted TEXT,
+  last_synced_at TEXT
 );
 
 -- 3. Platform Gross Earnings History
 CREATE TABLE IF NOT EXISTS platform_earnings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   platform TEXT NOT NULL,
-  profile_id INTEGER REFERENCES model_profiles(id) ON DELETE CASCADE,
+  month_period TEXT NOT NULL,
   gross_amount REAL NOT NULL DEFAULT 0.0,
   net_amount REAL NOT NULL DEFAULT 0.0,
-  currency TEXT NOT NULL DEFAULT 'USD',
-  recorded_date TEXT NOT NULL DEFAULT (date('now')),
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  subscriber_count INTEGER DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(platform, month_period)
 );
 
 -- 4. Shift Schedules (Dual-Timezone Engine)
@@ -375,7 +482,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 ---
 
-## 10. IPC API Bridge Reference (`window.api`)
+## 12. IPC API Bridge Reference (`window.api`)
 
 The renderer communicates exclusively with the Electron main process via preload-exposed IPC channels:
 
@@ -393,14 +500,14 @@ The renderer communicates exclusively with the Electron main process via preload
 | **Shifts** | `window.api.shifts.list(filters)` | `{ profile_id, user_id, day }` | Fetches shifts with dual-timezone converted times |
 | | `window.api.shifts.create(data)` | `{ profile_id, user_id, start_time, ... }`| Creates new scheduled shift |
 | | `window.api.shifts.delete(id)` | `id` | Removes scheduled shift |
-| **License** | `window.api.license.getStatus()` | `none` | Returns MTD revenue, cap, tier, and days remaining |
+| **License** | `window.api.license.get()` | `none` | Returns MTD revenue, Infloww scale tier, and days remaining |
 | | `window.api.license.activate(key)` | `licenseKey` | Activates and verifies monthly license key |
 | **Roles** | `window.api.roles.list()` | `none` | Lists all built-in and custom roles |
 | | `window.api.roles.create(data)` | `{ name, label, permissions }` | Creates custom role (Owner only) |
 
 ---
 
-## 11. Codebase Map & Directory Guide
+## 13. Codebase Map & Directory Guide
 
 ```
 Oserus-reddit/
@@ -419,7 +526,7 @@ Oserus-reddit/
 │   │   │   ├── profiles.js       # Model CRUD and team assignments (owner-gated)
 │   │   │   ├── accounts.js       # Accounts CRUD (scoped to assigned models)
 │   │   │   ├── shifts.js         # Dual-timezone shift scheduling CRUD
-│   │   │   ├── license.js        # Earnings-scaled licensing & platform connections
+│   │   │   ├── license.js        # Infloww-style graduated licensing & creator platform earnings
 │   │   │   ├── roles.js          # Custom roles & permissions CRUD
 │   │   │   ├── cloakmanager.js   # CloakManager CDP orchestrator & profile sync
 │   │   │   └── platforms.js      # Platform registry (Reddit, X, IG, OnlyFans, Fansly, Fanvue)
@@ -430,12 +537,12 @@ Oserus-reddit/
 │   │   └── permissions.js        # Canonical list of 30+ permissions
 │   └── renderer/
 │       ├── styles/
-│       │   └── global.css        # Master design tokens (--bg-0, --gold, --border, typography)
+│       │   └── global.css        # Master design tokens (--font-display: Syne, --font-body: Plus Jakarta Sans, --font-mono: JetBrains Mono)
 │       └── pages/
-│           ├── Dashboard.jsx     # Executive revenue meter, active browsers, system health
+│           ├── Dashboard.jsx     # Executive revenue meter, Infloww scale bar, active browsers, system health
 │           ├── Profiles.jsx      # AdsPower-style models overview (Grid & Table views, Edit Modal)
 │           ├── ModelDetail.jsx   # Unified tabbed accounts table, hero launch control
-│           ├── Team.jsx          # Dedicated 4-tab Team Hub (Roster, Shifts, Custom Roles, License)
+│           ├── Team.jsx          # Dedicated 4-tab Team Hub (Roster, Shifts, Custom Roles, License Scale)
 │           ├── Settings.jsx      # Creator platform connections, proxies, AI API keys
 │           ├── Inbox.jsx         # Infloww-style chatter CRM with multi-model quick switcher
 │           └── Scripts.jsx       # Reusable chatter script sets and PPV media vault
@@ -443,7 +550,7 @@ Oserus-reddit/
 
 ---
 
-## 12. The 10 Commandments for Future AI Agents
+## 14. The 10 Commandments for Future AI Agents
 
 Any AI agent continuing work on this codebase **must adhere to these ten rules**:
 
@@ -458,7 +565,7 @@ Any AI agent continuing work on this codebase **must adhere to these ten rules**
 5. **NEVER force workers to calculate timezone offsets.**  
    Always display shift times in both Agency Standard Time and the worker's local detected timezone.
 6. **PRESERVE the Dark Obsidian agency craft aesthetic.**  
-   Do not switch to bright white themes or unstyled default HTML elements. Match the tokens in `global.css`.
+   Use `Syne` for headlines, `Plus Jakarta Sans` for body copy, and `JetBrains Mono` for tabular currency numbers. Match the tokens in `global.css`.
 7. **DO NOT introduce 5 empty dashed dropboxes when accounts are missing.**  
    Use a unified accounts table with platform filter tabs and a single empty state.
 8. **DO NOT break SQLite foreign key constraints.**  

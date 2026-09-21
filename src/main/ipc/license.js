@@ -1,28 +1,59 @@
 const { getDb } = require('../db');
 const { userFromToken, requireOwnerOrAdmin } = require('./auth');
 
-const TIERS = {
-  starter: {
-    keyPrefix: 'STARTER',
-    name: 'Starter Agency ($10,000/mo cap)',
-    cap: 10000,
-  },
-  growth: {
-    keyPrefix: 'GROWTH',
-    name: 'Growth Agency ($50,000/mo cap)',
-    cap: 50000,
-  },
-  scale: {
-    keyPrefix: 'SCALE',
-    name: 'Scale Agency ($100,000/mo cap)',
-    cap: 100000,
-  },
-  enterprise: {
-    keyPrefix: 'ENTERPRISE',
-    name: 'Enterprise Agency (Unlimited)',
-    cap: 999999999,
-  },
-};
+const INFLOWW_EARNINGS_BRACKETS = [
+  { min: 0, max: 5000, fee: 40, label: '$0 – $5,000' },
+  { min: 5000.01, max: 15000, fee: 75, label: '$5,000.01 – $15,000' },
+  { min: 15000.01, max: 30000, fee: 150, label: '$15,000.01 – $30,000' },
+  { min: 30000.01, max: 60000, fee: 250, label: '$30,000.01 – $60,000' },
+  { min: 60000.01, max: 75000, fee: 400, label: '$60,000.01 – $75,000' },
+  { min: 75000.01, max: 100000, fee: 550, label: '$75,000.01 – $100,000' },
+  { min: 100000.01, max: 150000, fee: 750, label: '$100,000.01 – $150,000' },
+  { min: 150000.01, max: 200000, fee: 950, label: '$150,000.01 – $200,000' },
+  { min: 200000.01, max: 250000, fee: 1200, label: '$200,000.01 – $250,000' },
+];
+
+function resolveEarningsScale(grossAmount) {
+  const gross = Math.max(0, Number(grossAmount) || 0);
+
+  // Up to $250k: Graduated monthly creator/agency earnings brackets
+  for (let i = 0; i < INFLOWW_EARNINGS_BRACKETS.length; i++) {
+    const b = INFLOWW_EARNINGS_BRACKETS[i];
+    if (gross <= b.max) {
+      return {
+        bracketIndex: i + 1,
+        tierKey: `bracket_${i + 1}`,
+        tierName: `Earnings Tier: ${b.label}/mo ($${b.fee}/mo)`,
+        monthlyFee: b.fee,
+        cap: b.max,
+        ceiling: 250000,
+        isPercentageScale: false,
+        percentageCut: 0,
+        rateExplanation: `$${b.fee}/mo flat based on MTD gross earnings (${b.label})`,
+      };
+    }
+  }
+
+  // Beyond $250,000/mo: Scales dynamically on a percentage (1.0% volume fee over $250k)
+  const excess = gross - 250000;
+  const percentageRate = 0.01; // 1.0% on revenue over $250,000
+  const excessFee = Math.round(excess * percentageRate);
+  const totalFee = 1200 + excessFee;
+
+  return {
+    bracketIndex: 10,
+    tierKey: 'volume_percentage',
+    tierName: `Enterprise Scale ($250k+ · 1.0% Over-Cap)`,
+    monthlyFee: totalFee,
+    cap: 250000,
+    ceiling: 250000,
+    isPercentageScale: true,
+    percentageCut: 1.0,
+    excessGross: excess,
+    excessFee: excessFee,
+    rateExplanation: `$1,200/mo base + 1.0% on volume over $250k (+$${excessFee.toLocaleString()} volume commission)`,
+  };
+}
 
 function currentMonthPeriod() {
   const d = new Date();
@@ -138,17 +169,17 @@ function register(ipcMain) {
         totalSubs += (r.subscriber_count || 0);
       }
 
+      const scaleInfo = resolveEarningsScale(totalGross);
       const expiresDate = new Date(license.expires_at);
       const now = new Date();
       const diffMs = expiresDate.getTime() - now.getTime();
       const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
       const isExpired = diffMs <= 0;
-      const capPercent = Math.min(100, Math.round((totalGross / (license.monthly_earnings_cap || 1)) * 1000) / 10);
-      const isCapped = totalGross >= license.monthly_earnings_cap;
+      const capPercent = Math.min(100, Math.round((totalGross / 250000) * 1000) / 10);
+      const headroom = Math.max(0, 250000 - totalGross);
 
       let status = 'active';
       if (isExpired) status = 'expired';
-      else if (isCapped) status = 'capped';
 
       const connections = db.prepare('SELECT platform, connected, account_handle, last_synced_at FROM platform_connections').all();
 
@@ -156,10 +187,22 @@ function register(ipcMain) {
         ok: true,
         license: {
           ...license,
+          tier: scaleInfo.tierKey,
+          tier_name: scaleInfo.tierName,
+          monthly_earnings_cap: 250000.0,
+          scale_ceiling: 250000.0,
+          monthly_fee: scaleInfo.monthlyFee,
+          is_percentage_scale: scaleInfo.isPercentageScale,
+          percentage_cut: scaleInfo.percentageCut,
+          rate_explanation: scaleInfo.rateExplanation,
+          excess_gross: scaleInfo.excessGross || 0,
+          excess_fee: scaleInfo.excessFee || 0,
+          headroom,
+          all_brackets: INFLOWW_EARNINGS_BRACKETS,
           days_remaining: daysRemaining,
           status,
           is_expired: isExpired,
-          is_capped: isCapped,
+          is_capped: false, // In percentage scale mode, volume is never hard-capped, it scales smoothly
         },
         earnings: {
           period: month,
@@ -167,6 +210,8 @@ function register(ipcMain) {
           total_net: totalNet,
           total_subscribers: totalSubs,
           cap_percent: capPercent,
+          headroom,
+          is_percentage_scale: scaleInfo.isPercentageScale,
           by_platform: {
             onlyfans: platformsMap.onlyfans || 0,
             fansly: platformsMap.fansly || 0,
@@ -187,12 +232,6 @@ function register(ipcMain) {
       if (!key || typeof key !== 'string') throw new Error('License key is required');
 
       const upper = key.trim().toUpperCase();
-      let tier = 'starter';
-      if (upper.includes('ENT')) tier = 'enterprise';
-      else if (upper.includes('SCALE')) tier = 'scale';
-      else if (upper.includes('GROWTH')) tier = 'growth';
-
-      const tierCfg = TIERS[tier];
       const expires = new Date();
       expires.setDate(expires.getDate() + 30); // 30-day monthly license
 
@@ -200,18 +239,24 @@ function register(ipcMain) {
       ensureLicenseTables();
       db.prepare(`
         INSERT INTO app_license (id, license_key, owner_email, tier, tier_name, monthly_earnings_cap, expires_at, status)
-        VALUES (1, ?, ?, ?, ?, ?, ?, 'active')
+        VALUES (1, ?, ?, 'dynamic_scale', 'Graduated Scale (up to $250k + 1% Over-Cap)', 250000.0, ?, 'active')
         ON CONFLICT(id) DO UPDATE SET
           license_key = excluded.license_key,
           owner_email = COALESCE(excluded.owner_email, app_license.owner_email),
-          tier = excluded.tier,
-          tier_name = excluded.tier_name,
-          monthly_earnings_cap = excluded.monthly_earnings_cap,
+          tier = 'dynamic_scale',
+          tier_name = 'Graduated Scale (up to $250k + 1% Over-Cap)',
+          monthly_earnings_cap = 250000.0,
           expires_at = excluded.expires_at,
           status = 'active'
-      `).run(upper, ownerEmail || 'owner@agency.com', tier, tierCfg.name, tierCfg.cap, expires.toISOString());
+      `).run(upper, ownerEmail || 'owner@agency.com', expires.toISOString());
 
-      return { ok: true, tier, tierName: tierCfg.name, cap: tierCfg.cap, expiresAt: expires.toISOString() };
+      return {
+        ok: true,
+        tier: 'dynamic_scale',
+        tierName: 'Graduated Scale (up to $250k + 1% Over-Cap)',
+        cap: 250000,
+        expiresAt: expires.toISOString()
+      };
     } catch (err) {
       return { ok: false, error: err.message };
     }

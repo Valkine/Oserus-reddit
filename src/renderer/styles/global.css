@@ -62,8 +62,8 @@
   --eb-fg: #7aa8e0;
   --inherit-fg: #95a5a6;
 
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Inter Tight', system-ui, sans-serif;
+  --font-display: 'Syne', -apple-system, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   --text-xs: 10px;
@@ -111,9 +111,8 @@ input, textarea, select { user-select: text; }
 
 h1, h2, h3, h4 {
   font-family: var(--font-display);
-  font-weight: 400;
-  font-variation-settings: 'opsz' 96;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   margin: 0;
 }
 

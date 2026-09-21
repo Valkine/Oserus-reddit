@@ -160,24 +160,39 @@ export default function DashboardPage({ navigate }) {
             </div>
           </div>
 
-          {/* Revenue Cap Progress Bar */}
+          {/* Revenue Cap & Infloww-Style Scale Progress Bar */}
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
               <span className="muted">
-                {earn.cap_percent}% of monthly ${lic.monthly_earnings_cap?.toLocaleString()} cap
+                {lic.is_percentage_scale ? (
+                  <span style={{ color: 'var(--online-green)', fontWeight: 600 }}>
+                    ⚡ Active Enterprise Percentage Scaling (1.0% volume rate over $250,000)
+                  </span>
+                ) : (
+                  <span>
+                    {earn.cap_percent}% toward $250,000 scale ceiling · Tier fee: <strong style={{ color: 'var(--gold)' }}>${lic.monthly_fee}/mo</strong>
+                  </span>
+                )}
               </span>
               <span className="dim">
-                ${(lic.monthly_earnings_cap - earn.total_gross > 0 ? lic.monthly_earnings_cap - earn.total_gross : 0).toLocaleString()} headroom remaining
+                {lic.is_percentage_scale
+                  ? `+$${(lic.excess_fee || 0).toLocaleString()} volume commission ($${(lic.excess_gross || 0).toLocaleString()} over $250k)`
+                  : `$${(lic.headroom || 0).toLocaleString()} headroom to $250k ceiling`}
               </span>
             </div>
             <div style={{ width: '100%', height: 8, background: 'var(--bg-3)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{
                 width: `${earn.cap_percent}%`,
                 height: '100%',
-                background: earn.cap_percent > 90 ? 'var(--danger)' : 'linear-gradient(90deg, var(--gold), #e67e22)',
+                background: lic.is_percentage_scale
+                  ? 'linear-gradient(90deg, var(--gold), var(--online-green))'
+                  : earn.cap_percent > 90 ? 'var(--danger)' : 'linear-gradient(90deg, var(--gold), #e67e22)',
                 borderRadius: 4,
                 transition: 'width 0.4s ease',
               }} />
+            </div>
+            <div className="dim" style={{ fontSize: 11, marginTop: 4 }}>
+              {lic.rate_explanation}
             </div>
           </div>
 

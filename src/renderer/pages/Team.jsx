@@ -548,105 +548,219 @@ export default function TeamPage({ navigate }) {
 
       {/* ────────────────────────────────────────────────────────── TAB 4: LICENSE ── */}
       {tab === 'license' && licenseData && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-          {/* Active License Card */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 12px' }}>Agency Monthly License</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="muted">Status:</span>
-                <span style={{ fontWeight: 700, color: 'var(--online-green)' }}>
-                  ● {licenseData.license.status?.toUpperCase()}
-                </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 18 }}>
+            {/* Active License Card */}
+            <div className="card" style={{ padding: 20 }}>
+              <h3 style={{ margin: '0 0 12px' }}>Agency Monthly License</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Status:</span>
+                  <span style={{ fontWeight: 700, color: 'var(--online-green)' }}>
+                    ● {licenseData.license.status?.toUpperCase()}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Current Tier:</span>
+                  <strong style={{ color: 'var(--gold)' }}>{licenseData.license.tier_name}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Monthly Platform Fee:</span>
+                  <strong style={{ color: 'var(--green-bright)', fontSize: 15 }}>
+                    ${licenseData.license.monthly_fee?.toLocaleString()} / month
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Scaling Method:</span>
+                  <span>
+                    {licenseData.license.is_percentage_scale
+                      ? '⚡ 1.0% Volume Scaling (> $250,000)'
+                      : 'Tiered Earnings Bracket (Up to $250k)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Rate Formula:</span>
+                  <span className="dim" style={{ fontSize: 12 }}>{licenseData.license.rate_explanation}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Active License Key:</span>
+                  <span className="mono">{licenseData.license.license_key}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span className="muted">Cycle Days Remaining:</span>
+                  <span>{licenseData.license.days_remaining} days</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="muted">Current Tier:</span>
-                <strong style={{ color: 'var(--gold)' }}>{licenseData.license.tier_name}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="muted">Monthly Gross Cap:</span>
-                <strong>${licenseData.license.monthly_earnings_cap?.toLocaleString()} / month</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="muted">Active License Key:</span>
-                <span className="mono">{licenseData.license.license_key}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="muted">Days Remaining:</span>
-                <span>{licenseData.license.days_remaining} days</span>
-              </div>
+
+              {isOwner && (
+                <form onSubmit={handleActivateLicense} style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <label>Activate / Renew Monthly License Key</label>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <input
+                      value={licenseKeyInput}
+                      onChange={(e) => setLicenseKeyInput(e.target.value)}
+                      placeholder="OSERUS-SCALE-2026-XXXX"
+                      style={{ flex: 1, textTransform: 'uppercase' }}
+                    />
+                    <button type="submit" className="primary" disabled={licenseBusy || !licenseKeyInput.trim()}>
+                      {licenseBusy ? 'Activating…' : 'Activate Key'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
 
-            {isOwner && (
-              <form onSubmit={handleActivateLicense} style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                <label>Activate / Upgrade Monthly License Key</label>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <input
-                    value={licenseKeyInput}
-                    onChange={(e) => setLicenseKeyInput(e.target.value)}
-                    placeholder="OSERUS-GROWTH-2026-XXXX"
-                    style={{ flex: 1, textTransform: 'uppercase' }}
-                  />
-                  <button type="submit" className="primary" disabled={licenseBusy || !licenseKeyInput.trim()}>
-                    {licenseBusy ? 'Activating…' : 'Activate Key'}
-                  </button>
+            {/* Connected Monetization Platforms */}
+            <div className="card" style={{ padding: 20 }}>
+              <h3 style={{ margin: '0 0 12px' }}>Platform Revenue Tracking</h3>
+              <div className="dim" style={{ fontSize: 12, marginBottom: 14 }}>
+                Live gross revenue sync across OnlyFans, Fansly, and Fanvue to automatically determine your monthly tier.
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* OnlyFans */}
+                <div style={{ padding: 12, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>💙</span>
+                      <strong style={{ color: '#00aff0' }}>OnlyFans API</strong>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--online-green)', fontWeight: 600 }}>● Connected</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span className="muted">MTD Tracked Gross:</span>
+                    <strong className="mono">${(licenseData.earnings?.by_platform?.onlyfans || 0).toLocaleString()}</strong>
+                  </div>
                 </div>
-              </form>
-            )}
+
+                {/* Fansly */}
+                <div style={{ padding: 12, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>💙</span>
+                      <strong style={{ color: '#1fa2f1' }}>Fansly API</strong>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--online-green)', fontWeight: 600 }}>● Connected</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span className="muted">MTD Tracked Gross:</span>
+                    <strong className="mono">${(licenseData.earnings?.by_platform?.fansly || 0).toLocaleString()}</strong>
+                  </div>
+                </div>
+
+                {/* Fanvue */}
+                <div style={{ padding: 12, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>💜</span>
+                      <strong style={{ color: '#8b5cf6' }}>Fanvue API</strong>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--online-green)', fontWeight: 600 }}>● Connected</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span className="muted">MTD Tracked Gross:</span>
+                    <strong className="mono">${(licenseData.earnings?.by_platform?.fanvue || 0).toLocaleString()}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Connected Monetization Platforms */}
+          {/* Infloww-Style Graduated Earnings Scale Reference Table */}
           <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ margin: '0 0 12px' }}>Platform Revenue Tracking</h3>
-            <div className="dim" style={{ fontSize: 12, marginBottom: 14 }}>
-              Live gross revenue sync across OnlyFans, Fansly, and Fanvue to scale agency tier limits.
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px' }}>Graduated Monthly Earnings Scale</h3>
+                <div className="dim" style={{ fontSize: 12 }}>
+                  Monthly license pricing scales according to MTD gross creator earnings up to $250,000/mo. Operations above $250,000/mo scale at a 1.0% volume rate.
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span className="dim" style={{ fontSize: 11 }}>Total MTD Gross Revenue: </span>
+                <strong style={{ color: 'var(--gold)', fontSize: 16 }}>${(licenseData.earnings?.total_gross || 0).toLocaleString()}</strong>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* OnlyFans */}
-              <div style={{ padding: 12, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>💙</span>
-                    <strong style={{ color: '#00aff0' }}>OnlyFans API</strong>
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--online-green)', fontWeight: 600 }}>● Connected</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span className="muted">MTD Tracked Gross:</span>
-                  <strong className="mono">${(licenseData.earnings?.by_platform?.onlyfans || 0).toLocaleString()}</strong>
-                </div>
-              </div>
-
-              {/* Fansly */}
-              <div style={{ padding: 12, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>💙</span>
-                    <strong style={{ color: '#1fa2f1' }}>Fansly API</strong>
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--online-green)', fontWeight: 600 }}>● Connected</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span className="muted">MTD Tracked Gross:</span>
-                  <strong className="mono">${(licenseData.earnings?.by_platform?.fansly || 0).toLocaleString()}</strong>
-                </div>
-              </div>
-
-              {/* Fanvue */}
-              <div style={{ padding: 12, background: 'var(--bg-1)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>💜</span>
-                    <strong style={{ color: '#8b5cf6' }}>Fanvue API</strong>
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--online-green)', fontWeight: 600 }}>● Connected</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span className="muted">MTD Tracked Gross:</span>
-                  <strong className="mono">${(licenseData.earnings?.by_platform?.fanvue || 0).toLocaleString()}</strong>
-                </div>
-              </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--text-2)' }}>
+                    <th style={{ padding: '8px 12px' }}>Bracket</th>
+                    <th style={{ padding: '8px 12px' }}>Monthly Creator Gross Earnings</th>
+                    <th style={{ padding: '8px 12px' }}>Monthly Software Fee</th>
+                    <th style={{ padding: '8px 12px' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(licenseData.license.all_brackets || []).map((b, idx) => {
+                    const gross = licenseData.earnings?.total_gross || 0;
+                    const isCurrent = gross >= b.min && gross <= b.max;
+                    return (
+                      <tr
+                        key={idx}
+                        style={{
+                          borderBottom: '1px solid var(--border)',
+                          background: isCurrent ? 'rgba(212, 166, 74, 0.08)' : 'transparent',
+                          fontWeight: isCurrent ? 700 : 400,
+                        }}
+                      >
+                        <td style={{ padding: '10px 12px' }}>
+                          Bracket {idx + 1}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span className="mono">{b.label}</span>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span className="mono" style={{ color: isCurrent ? 'var(--gold)' : 'inherit' }}>
+                            ${b.fee} / month
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          {isCurrent ? (
+                            <span style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                              background: 'rgba(212, 166, 74, 0.2)', color: 'var(--gold)', border: '1px solid var(--gold)'
+                            }}>
+                              👈 Active Current Bracket
+                            </span>
+                          ) : gross > b.max ? (
+                            <span className="dim">Passed</span>
+                          ) : (
+                            <span className="dim">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* Enterprise Over-Cap Row */}
+                  <tr style={{
+                    background: licenseData.license.is_percentage_scale ? 'rgba(127, 217, 154, 0.1)' : 'transparent',
+                    fontWeight: licenseData.license.is_percentage_scale ? 700 : 400,
+                  }}>
+                    <td style={{ padding: '10px 12px' }}>Enterprise</td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <span className="mono">$250,000.01+ / mo</span>
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <span className="mono" style={{ color: licenseData.license.is_percentage_scale ? 'var(--online-green)' : 'inherit' }}>
+                        $1,200 base + 1.0% volume rate on excess
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      {licenseData.license.is_percentage_scale ? (
+                        <span style={{
+                          fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                          background: 'rgba(127, 217, 154, 0.2)', color: 'var(--online-green)', border: '1px solid var(--online-green)'
+                        }}>
+                          ⚡ Active Enterprise Volume Scaling
+                        </span>
+                      ) : (
+                        <span className="dim">—</span>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
