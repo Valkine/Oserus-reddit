@@ -109,28 +109,29 @@ class CloakManagerClient {
         name: profileName,
         headless: false,
         browser_brand: "Chrome",
-        warmup_enabled: true,
-        warmup_sites: [
-          "https://www.google.com",
-          "https://www.wikipedia.org",
-          "https://www.youtube.com",
-          "https://www.reddit.com"
-        ],
+        warmup_enabled: false,
         seed_name: `${accountConfig.os || 'windows'}-chrome-us`,
         os: accountConfig.os || 'windows',
-        browser_theme: "light"
+        browser_theme: "light",
+        storage_quota: 150000,
+        gpu_vendor: "Google Inc. (NVIDIA)",
+        gpu_renderer: "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        screen_width: 1920,
+        screen_height: 1080,
+        taskbar_height: 40,
+        auto_geoip: true,
+        webrtc_mode: "auto",
       };
 
-      // Add proxy if provided (with auto_geoip for timezone/locale detection)
+      // Add proxy if provided
       if (proxyConfig) {
         const proxy = await this._getOrCreateProxy(proxyConfig);
         if (proxy) {
           payload.proxy_id = proxy.id;
-          payload.auto_geoip = true;
         }
       }
 
-      console.log('[CloakManager] Creating profile with minimal payload:', payload);
+      console.log('[CloakManager] Creating profile with optimized fingerprint payload:', payload);
       console.log('[CloakManager] POST URL:', `${this.baseUrl}/api/profiles`);
       const response = await axios.post(`${this.baseUrl}/api/profiles`, payload);
       console.log('[CloakManager] POST response:', response.status, response.data);

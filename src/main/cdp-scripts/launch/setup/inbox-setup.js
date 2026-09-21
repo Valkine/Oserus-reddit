@@ -57,13 +57,24 @@ async function execute(nativeConnection, context) {
 
     console.log('[Inbox Setup] Opening inbox:', inboxUrl);
 
-    // Native Playwright: Create new page in browser context
-    // This shares cookies/auth with the existing page
-    const inboxPage = await browserContext.newPage();
-    await inboxPage.goto(inboxUrl, { waitUntil: 'domcontentloaded' });
+    // Native Playwright: Check if inbox is already open
+    if (browserContext && typeof browserContext.pages === 'function') {
+      const existing = browserContext.pages().find(p => {
+        try {
+          const u = p.url();
+          return u.includes('/message/inbox') || u.includes('/messages') || u.includes('/direct/inbox');
+        } catch { return false; }
+      });
+      if (existing) {
+        console.log('[Inbox Setup] Inbox tab already open:', existing.url());
+        return { success: true, url: existing.url(), platform, existingTab: true };
+      }
+    }
 
-    // Give inbox time to load messages (reduced from 3000ms since auto-waiting)
-    await sleep(2000);
+    const inboxPage = await browserContext.newPage();
+    await inboxPage.goto(inboxUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+
+    await sleep(200);
 
     console.log('[Inbox Setup] ✅ Inbox opened and preloaded for:', platform);
     return {

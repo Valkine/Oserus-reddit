@@ -132,13 +132,13 @@ function invalidateCache() {
  */
 function getDefaultScripts(platform) {
   const defaults = [
-    { scriptId: 'launch/setup/search-engine',   enabled: true, runMode: 'once',   sortOrder: 0 },
-    { scriptId: 'launch/navigation/initial',    enabled: true, runMode: 'always', sortOrder: 1 },
-    { scriptId: 'launch/setup/cookie-warmer',   enabled: true, runMode: 'once',   sortOrder: 2 },
-    { scriptId: 'launch/setup/homepage-tiles',  enabled: true, runMode: 'always', sortOrder: 3 },
-    { scriptId: 'launch/setup/inbox-setup',     enabled: true, runMode: 'always', sortOrder: 4 },
-    { scriptId: 'launch/setup/environment',     enabled: true, runMode: 'once',   sortOrder: 5 },
-    { scriptId: 'launch/setup/bookmarks',       enabled: true, runMode: 'once',   sortOrder: 6 },
+    { scriptId: 'launch/setup/search-engine',   enabled: true,  runMode: 'once',   sortOrder: 0 },
+    { scriptId: 'launch/navigation/initial',    enabled: true,  runMode: 'always', sortOrder: 1 },
+    { scriptId: 'launch/setup/cookie-warmer',   enabled: false, runMode: 'once',   sortOrder: 2 },
+    { scriptId: 'launch/setup/homepage-tiles',  enabled: true,  runMode: 'always', sortOrder: 3 },
+    { scriptId: 'launch/setup/inbox-setup',     enabled: true,  runMode: 'always', sortOrder: 4 },
+    { scriptId: 'launch/setup/environment',     enabled: true,  runMode: 'once',   sortOrder: 5 },
+    { scriptId: 'launch/setup/bookmarks',       enabled: false, runMode: 'once',   sortOrder: 6 },
   ];
 
   if (platform === 'reddit') {

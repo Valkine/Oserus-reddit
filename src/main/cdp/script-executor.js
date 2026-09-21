@@ -276,9 +276,7 @@ async function executeLaunchSequence(profileName, accountId, platform) {
 
   try {
     const randomDelay = (min, max) => {
-      const delay = min + Math.random() * (max - min);
-      console.log(`[CDP Script Executor] ⏱️ Waiting ${(delay/1000).toFixed(1)}s before next script...`);
-      return sleep(delay);
+      return sleep(150);
     };
 
     let owner = db.prepare('SELECT profile_id FROM cloakmanager_profiles WHERE profile_name = ?').get(profileName);
@@ -301,6 +299,27 @@ async function executeLaunchSequence(profileName, accountId, platform) {
       console.warn('[CDP Script Executor] No model found for profile, skipping launch sequence:', profileName);
       return results;
     }
+
+    const { credentialVaultGet, decryptSecret } = require('../db');
+    const modelAccounts = db.prepare(`
+      SELECT id, username, platform, password_encrypted
+      FROM reddit_accounts
+      WHERE profile_id = ? AND status != 'banned'
+      ORDER BY id ASC
+    `).all(owner.profile_id).map(r => {
+      let password = credentialVaultGet('account_password', r.id);
+      if (!password && r.password_encrypted) {
+        password = decryptSecret(r.password_encrypted);
+      }
+      return {
+        id: r.id,
+        username: r.username,
+        platform: r.platform || 'reddit',
+        password: password || null,
+      };
+    });
+
+    context.modelAccounts = modelAccounts;
 
     const { seedDefaultsForModel, discoverLaunchScripts } = require('./script-discovery');
     const modelPlatforms = db.prepare('SELECT DISTINCT platform FROM reddit_accounts WHERE profile_id = ?')
@@ -332,15 +351,27 @@ async function executeLaunchSequence(profileName, accountId, platform) {
 
       if (accountScopedIds.has(scriptKey)) {
         if (!accountId) {
-          console.log(`[CDP Script Executor] Step ${i + 1}: ${scriptKey} — account-scoped, no account targeted by this launch, skipping`);
-          results[scriptKey] = { success: false, skipped: true, reason: 'no_account_targeted' };
-          continue;
-        }
-        const declaredPlatform = scriptPlatform.get(scriptKey);
-        if (declaredPlatform && declaredPlatform !== 'all' && declaredPlatform !== platform) {
-          console.log(`[CDP Script Executor] Step ${i + 1}: ${scriptKey} — for ${declaredPlatform}, this launch is ${platform}, skipping`);
-          results[scriptKey] = { success: false, skipped: true, reason: 'platform_mismatch' };
-          continue;
+          const declaredPlatform = scriptPlatform.get(scriptKey) || 'reddit';
+          const matchedAcc = modelAccounts.find(a =>
+            (declaredPlatform === 'all' || a.platform === declaredPlatform) && a.username
+          );
+          if (!matchedAcc) {
+            console.log(`[CDP Script Executor] Step ${i + 1}: ${scriptKey} — account-scoped, no matching account on model for ${declaredPlatform}, skipping`);
+            results[scriptKey] = { success: false, skipped: true, reason: 'no_account_targeted' };
+            continue;
+          }
+          // Dynamically scope execution to this model account
+          context.accountId = matchedAcc.id;
+          context.credentials = { username: matchedAcc.username, password: matchedAcc.password };
+          context.platform = matchedAcc.platform;
+          console.log(`[CDP Script Executor] Step ${i + 1}: ${scriptKey} — model launch using account ${matchedAcc.username} (${matchedAcc.platform})`);
+        } else {
+          const declaredPlatform = scriptPlatform.get(scriptKey);
+          if (declaredPlatform && declaredPlatform !== 'all' && declaredPlatform !== platform) {
+            console.log(`[CDP Script Executor] Step ${i + 1}: ${scriptKey} — for ${declaredPlatform}, this launch is ${platform}, skipping`);
+            results[scriptKey] = { success: false, skipped: true, reason: 'platform_mismatch' };
+            continue;
+          }
         }
       }
 
@@ -399,7 +430,7 @@ async function executeLaunchSequence(profileName, accountId, platform) {
       }
 
       if (i < scripts.length - 1) {
-        await randomDelay(1500, 4000);
+        await sleep(150);
       }
     }
 

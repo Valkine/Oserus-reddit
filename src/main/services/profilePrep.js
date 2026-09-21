@@ -23,6 +23,7 @@ function prepareProfile(profileName) {
   if (!profileName) return;
 
   try {
+    optimizeCloakProfiles();
     const baseDir = getProfilesBaseDir();
     const profileDefaultDir = path.join(baseDir, profileName, 'Default');
     if (!fs.existsSync(profileDefaultDir)) {
@@ -191,10 +192,65 @@ async function ensureGoogleSearchInBrowser(context, profileName) {
 }
 
 /**
+ * Optimize fingerprint attributes in CloakManager's database (cloak_data.db)
+ * Sets storage quota to 150GB (clearing incognito flags), realistic GPU strings,
+ * auto_geoip, and webrtc protection.
+ */
+function optimizeCloakProfiles() {
+  try {
+    const userData = app ? app.getPath('userData') : path.join(process.env.APPDATA || '', 'oserus-management');
+    const dbPath = path.join(userData, 'cloak-manager', 'backend-data', 'cloak_data.db');
+    if (!fs.existsSync(dbPath)) return;
+    const db = new Database(dbPath, { timeout: 3000 });
+    const hasProfiles = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='profiles'").get();
+    if (hasProfiles) {
+      const res = db.prepare(`
+        UPDATE profiles
+        SET storage_quota = 150000,
+            gpu_vendor = 'Google Inc. (NVIDIA)',
+            gpu_renderer = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+            screen_width = 1920,
+            screen_height = 1080,
+            taskbar_height = 40,
+            auto_geoip = 1,
+            webrtc_mode = 'auto'
+        WHERE storage_quota < 50000 OR gpu_vendor = '' OR gpu_vendor IS NULL
+      `).run();
+      if (res.changes > 0) {
+        elog.info(`[ProfilePrep] Optimized fingerprint settings for ${res.changes} CloakManager profile(s)`);
+      }
+    }
+    db.close();
+
+    // Also ensure existing models don't have slow background scripts enabled by default
+    try {
+      const appDbPath = path.join(userData, 'reddit-manager.db');
+      if (fs.existsSync(appDbPath)) {
+        const appDb = new Database(appDbPath, { timeout: 3000 });
+        const hasTbl = appDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='model_launch_scripts'").get();
+        if (hasTbl) {
+          appDb.prepare(`
+            UPDATE model_launch_scripts
+            SET enabled = 0
+            WHERE script_id IN ('launch/setup/cookie-warmer', 'launch/setup/bookmarks')
+          `).run();
+        }
+        appDb.close();
+      }
+    } catch (dbErr) {
+      elog.warn('[ProfilePrep] disable slow scripts non-fatal:', dbErr.message);
+    }
+  } catch (err) {
+    elog.warn('[ProfilePrep] optimizeCloakProfiles non-fatal error:', err.message);
+  }
+}
+
+/**
  * Scan all existing profiles and prepare them.
  */
 function prepareAllProfiles() {
   try {
+    optimizeCloakProfiles();
     const baseDir = getProfilesBaseDir();
     if (!fs.existsSync(baseDir)) return;
     const entries = fs.readdirSync(baseDir, { withFileTypes: true });
@@ -214,4 +270,5 @@ module.exports = {
   getProfilesBaseDir,
   isSearchConfigured,
   ensureGoogleSearchInBrowser,
+  optimizeCloakProfiles,
 };
