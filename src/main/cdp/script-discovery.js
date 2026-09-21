@@ -132,6 +132,7 @@ function invalidateCache() {
  */
 function getDefaultScripts(platform) {
   const defaults = [
+    { scriptId: 'launch/setup/search-engine',   enabled: true, runMode: 'once',   sortOrder: 0 },
     { scriptId: 'launch/navigation/initial',    enabled: true, runMode: 'always', sortOrder: 1 },
     { scriptId: 'launch/setup/cookie-warmer',   enabled: true, runMode: 'once',   sortOrder: 2 },
     { scriptId: 'launch/setup/homepage-tiles',  enabled: true, runMode: 'always', sortOrder: 3 },
@@ -141,7 +142,7 @@ function getDefaultScripts(platform) {
   ];
 
   if (platform === 'reddit') {
-    defaults.unshift({ scriptId: 'launch/authentication/reddit-login', enabled: true, runMode: 'always', sortOrder: 0 });
+    defaults.unshift({ scriptId: 'launch/authentication/reddit-login', enabled: true, runMode: 'always', sortOrder: -1 });
   }
 
   return defaults;

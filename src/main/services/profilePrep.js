@@ -109,6 +109,88 @@ function prepareProfile(profileName) {
 }
 
 /**
+ * Checks if a profile already has Google search configured natively in Chromium.
+ * @param {string} profileName
+ * @returns {boolean}
+ */
+function isSearchConfigured(profileName) {
+  if (!profileName) return false;
+  try {
+    const baseDir = getProfilesBaseDir();
+    const prefsPath = path.join(baseDir, profileName, 'Default', 'Preferences');
+    if (!fs.existsSync(prefsPath)) return false;
+    const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8'));
+    return !!(prefs.default_search_provider && prefs.default_search_provider.guid && !prefs.default_search_provider.reset_occurred);
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Configure Google search engine via Chromium's internal WebUI (SearchEnginesBrowserProxyImpl).
+ * Chromium itself signs the url_hash in SQLite Web Data and sets default_search_provider in Preferences.
+ *
+ * @param {import('playwright').BrowserContext} context
+ * @param {string} profileName
+ */
+async function ensureGoogleSearchInBrowser(context, profileName) {
+  if (!context) return;
+  if (profileName && isSearchConfigured(profileName)) {
+    return;
+  }
+
+  elog.info(`[ProfilePrep] Configuring Google search engine for ${profileName} via WebUI...`);
+  let settingsPage = null;
+  try {
+    settingsPage = await context.newPage();
+    await settingsPage.goto('chrome://settings/searchEngines', { timeout: 10000 });
+    await settingsPage.waitForTimeout(1000);
+
+    const result = await settingsPage.evaluate(async () => {
+      try {
+        const mod = await import('chrome://settings/settings.js');
+        const proxy = mod.SearchEnginesBrowserProxyImpl.getInstance();
+
+        let list = await proxy.getSearchEnginesList();
+        const all = [...(list.defaults || []), ...(list.actives || []), ...(list.others || [])];
+        let google = all.find(e => e.name === 'Google' || e.keyword === 'google.com');
+
+        if (!google) {
+          proxy.searchEngineEditStarted(-1);
+          proxy.searchEngineEditCompleted(
+            'Google',
+            'google.com',
+            'https://www.google.com/search?q=%s',
+            'https://www.google.com/complete/search?client=chrome&q=%s'
+          );
+          await new Promise(r => setTimeout(r, 800));
+          list = await proxy.getSearchEnginesList();
+          const allAfter = [...(list.defaults || []), ...(list.actives || []), ...(list.others || [])];
+          google = allAfter.find(e => e.name === 'Google' || e.keyword === 'google.com');
+        }
+
+        if (google && !google.default) {
+          proxy.setDefaultSearchEngine(google.modelIndex, 1, false);
+          await new Promise(r => setTimeout(r, 800));
+        }
+
+        return { ok: true, name: google?.name || 'Google', default: true };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
+
+    elog.info(`[ProfilePrep] Search engine config result for ${profileName}:`, result);
+  } catch (err) {
+    elog.warn(`[ProfilePrep] Non-fatal error configuring search engine for ${profileName}:`, err.message);
+  } finally {
+    if (settingsPage) {
+      await settingsPage.close().catch(() => {});
+    }
+  }
+}
+
+/**
  * Scan all existing profiles and prepare them.
  */
 function prepareAllProfiles() {
@@ -130,4 +212,6 @@ module.exports = {
   prepareProfile,
   prepareAllProfiles,
   getProfilesBaseDir,
+  isSearchConfigured,
+  ensureGoogleSearchInBrowser,
 };

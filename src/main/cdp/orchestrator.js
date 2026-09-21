@@ -281,6 +281,17 @@ async function runLaunch(profileName, state) {
       throw new CdpUnavailable(`Could not open a CDP connection to ${profileName}`);
     }
 
+    // Ensure Google search provider is default via WebUI if not already configured
+    try {
+      const { ensureGoogleSearchInBrowser } = require('../services/profilePrep');
+      const browserContext = connection.context || (connection.native && connection.native.context);
+      if (browserContext) {
+        await ensureGoogleSearchInBrowser(browserContext, profileName);
+      }
+    } catch (searchErr) {
+      elog.warn('[CDP Orchestrator] ensureGoogleSearchInBrowser non-fatal error:', searchErr.message);
+    }
+
     // Browser is up + reachable. Unblock any waitForScripts:false caller.
     const brought = {
       ok: true,
