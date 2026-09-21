@@ -562,7 +562,8 @@ export default function ProfilesPage({ navigate }) {
                 </div>
               )}
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
       </>
