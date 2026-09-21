@@ -1505,6 +1505,41 @@ function initDatabase() {
       `);
     } catch (e) { console.warn('[db] Index update skipped:', e?.message); }
 
+    // Ensure models in CloakManager mode have a cloak_profile_name
+    try {
+      const unconfiguredCmModels = db.prepare(`
+        SELECT id, name FROM model_profiles
+        WHERE browser_mode = 'cloakmanager' AND (cloak_profile_name IS NULL OR cloak_profile_name = '')
+      `).all();
+      for (const m of unconfiguredCmModels) {
+        const slug = (m.name || 'default').toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-');
+        const defaultName = `model-${m.id}-${slug}`;
+        db.prepare('UPDATE model_profiles SET cloak_profile_name = ? WHERE id = ?').run(defaultName, m.id);
+      }
+    } catch (e) { console.warn('[db] cloak_profile_name auto-fill skipped:', e?.message); }
+
+    // Backfill any missing cloakmanager_profiles rows for models that have a cloak_profile_name
+    try {
+      const missingModels = db.prepare(`
+        SELECT mp.id, mp.cloak_profile_name
+        FROM model_profiles mp
+        WHERE mp.cloak_profile_name IS NOT NULL
+          AND mp.cloak_profile_name != ''
+          AND NOT EXISTS (
+            SELECT 1 FROM cloakmanager_profiles cp WHERE cp.profile_name = mp.cloak_profile_name
+          )
+      `).all();
+      for (const m of missingModels) {
+        db.prepare(`
+          INSERT OR IGNORE INTO cloakmanager_profiles (profile_id, profile_name, status)
+          VALUES (?, ?, 'stopped')
+        `).run(m.id, m.cloak_profile_name);
+      }
+      if (missingModels.length > 0) {
+        console.log(`[db] Backfilled ${missingModels.length} missing cloakmanager_profiles rows.`);
+      }
+    } catch (e) { console.warn('[db] cloakmanager_profiles backfill skipped:', e?.message); }
+
     console.log('[db] Browser mode migration to model_profiles complete.');
   } catch (e) {
     console.error('[db] Browser mode migration failed:', e.message);

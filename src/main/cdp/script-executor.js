@@ -281,7 +281,22 @@ async function executeLaunchSequence(profileName, accountId, platform) {
       return sleep(delay);
     };
 
-    const owner = db.prepare('SELECT profile_id FROM cloakmanager_profiles WHERE profile_name = ?').get(profileName);
+    let owner = db.prepare('SELECT profile_id FROM cloakmanager_profiles WHERE profile_name = ?').get(profileName);
+    if (!owner) {
+      owner = db.prepare('SELECT id AS profile_id FROM model_profiles WHERE cloak_profile_name = ?').get(profileName);
+    }
+    if (!owner && accountId) {
+      owner = db.prepare('SELECT profile_id FROM reddit_accounts WHERE id = ?').get(accountId);
+    }
+    if (!owner) {
+      owner = db.prepare(`
+        SELECT ra.profile_id
+        FROM account_browser_settings abs
+        JOIN reddit_accounts ra ON ra.id = abs.account_id
+        WHERE abs.cloak_profile_override = ?
+        LIMIT 1
+      `).get(profileName);
+    }
     if (!owner) {
       console.warn('[CDP Script Executor] No model found for profile, skipping launch sequence:', profileName);
       return results;

@@ -1,4 +1,5 @@
 const { getDb } = require('../db');
+const { getDefaultProfileName } = require('./profileName');
 
 /**
  * Resolve the effective browser mode for an account.
@@ -14,7 +15,8 @@ const { getDb } = require('../db');
 function resolveBrowserMode(accountId) {
   const db = getDb();
   const row = db.prepare(`
-    SELECT mp.browser_mode, mp.cloak_profile_name AS model_cm_name,
+    SELECT mp.id AS model_id, mp.name AS model_name,
+           mp.browser_mode, mp.cloak_profile_name AS model_cm_name,
            bs.cloak_profile_override
     FROM reddit_accounts ra
     JOIN model_profiles mp ON mp.id = ra.profile_id
@@ -27,8 +29,16 @@ function resolveBrowserMode(accountId) {
   }
 
   // cloakmanager mode — account override wins, else model default
-  const profileName = row.cloak_profile_override || row.model_cm_name || null;
-  return { mode: 'cloakmanager', profileName };
+  let profileName = row.cloak_profile_override || row.model_cm_name;
+  if (!profileName && row.model_id) {
+    profileName = getDefaultProfileName({ id: row.model_id, name: row.model_name });
+    try {
+      db.prepare('UPDATE model_profiles SET cloak_profile_name = ? WHERE id = ?').run(profileName, row.model_id);
+    } catch { /* non-fatal */ }
+  }
+
+  return { mode: 'cloakmanager', profileName: profileName || null };
 }
 
 module.exports = { resolveBrowserMode };
+

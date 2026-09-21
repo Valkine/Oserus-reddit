@@ -362,7 +362,12 @@ function registerOserusBrowserHandlers() {
       return { ok: false, error: 'This model is not in CloakManager mode' };
     }
     if (!model.cloak_profile_name) {
-      return { ok: false, error: 'No CloakManager profile configured for this model yet' };
+      const { ensureModelCmProfile } = require('./ipc/cloakmanager');
+      const provision = await ensureModelCmProfile(model.id);
+      if (!provision.ok) {
+        return { ok: false, error: provision.error || 'Failed to configure CloakManager profile' };
+      }
+      model.cloak_profile_name = provision.profileName;
     }
 
     try {
@@ -401,7 +406,12 @@ function registerOserusBrowserHandlers() {
 
     if (model.browser_mode === 'cloakmanager') {
       if (!model.cloak_profile_name) {
-        return { ok: false, error: 'No CloakManager profile configured for this model yet' };
+        const { ensureModelCmProfile } = require('./ipc/cloakmanager');
+        const provision = await ensureModelCmProfile(model.id);
+        if (!provision.ok) {
+          return { ok: false, error: provision.error || 'Failed to configure CloakManager profile' };
+        }
+        model.cloak_profile_name = provision.profileName;
       }
       try {
         const cdpOrchestrator = require('./cdp/orchestrator');

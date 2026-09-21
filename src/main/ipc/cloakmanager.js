@@ -30,8 +30,17 @@ function canAccessAccount(user, accountId) {
 
 function profileIdForProfile(profileName) {
   if (!profileName) return null;
-  const row = getDb().prepare('SELECT profile_id FROM cloakmanager_profiles WHERE profile_name = ?').get(profileName);
-  return row?.profile_id || null;
+  const db = getDb();
+  const row = db.prepare('SELECT profile_id FROM cloakmanager_profiles WHERE profile_name = ?').get(profileName);
+  if (row?.profile_id) return row.profile_id;
+  const model = db.prepare('SELECT id FROM model_profiles WHERE cloak_profile_name = ?').get(profileName);
+  if (model?.id) return model.id;
+  const override = db.prepare(`
+    SELECT ra.profile_id FROM account_browser_settings abs
+    JOIN reddit_accounts ra ON ra.id = abs.account_id
+    WHERE abs.cloak_profile_override = ? LIMIT 1
+  `).get(profileName);
+  return override?.profile_id || null;
 }
 
 function canAccessProfileById(user, profileId) {

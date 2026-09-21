@@ -184,11 +184,49 @@ async function runLaunch(profileName, state) {
   try {
     // Does any model own this profile? (row exists the moment a model is put
     // into CloakManager mode, independent of linked accounts.)
-    const owner = getDb().prepare(
+    const db = getDb();
+    let owner = db.prepare(
       'SELECT profile_id FROM cloakmanager_profiles WHERE profile_name = ?'
     ).get(profileName);
+
+    if (!owner) {
+      owner = db.prepare('SELECT id AS profile_id FROM model_profiles WHERE cloak_profile_name = ?').get(profileName);
+    }
+    if (!owner && state.accountId) {
+      owner = db.prepare('SELECT profile_id FROM reddit_accounts WHERE id = ?').get(state.accountId);
+    }
+    if (!owner) {
+      owner = db.prepare(`
+        SELECT ra.profile_id
+        FROM account_browser_settings abs
+        JOIN reddit_accounts ra ON ra.id = abs.account_id
+        WHERE abs.cloak_profile_override = ?
+        LIMIT 1
+      `).get(profileName);
+    }
+
     if (!owner) {
       throw new LaunchFailed(`Profile "${profileName}" is not owned by any model`);
+    }
+
+    // Auto-heal cloakmanager_profiles row if missing
+    try {
+      db.prepare(`
+        INSERT OR IGNORE INTO cloakmanager_profiles (profile_id, profile_name, status)
+        VALUES (?, ?, 'created')
+      `).run(owner.profile_id, profileName);
+    } catch (healErr) {
+      elog.warn('[CDP Orchestrator] Auto-heal cloakmanager_profiles failed (non-fatal):', healErr.message);
+    }
+
+    // Ensure backend profile exists in CloakManager (creates it if missing, idempotent if exists)
+    try {
+      const { ensureModelCmProfile } = require('../ipc/cloakmanager');
+      if (typeof ensureModelCmProfile === 'function') {
+        await ensureModelCmProfile(owner.profile_id);
+      }
+    } catch (ensureErr) {
+      elog.warn('[CDP Orchestrator] ensureModelCmProfile in runLaunch (non-fatal):', ensureErr.message);
     }
 
     // 1. launching — start it, or attach to an already-running instance

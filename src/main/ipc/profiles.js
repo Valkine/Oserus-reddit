@@ -138,7 +138,7 @@ function register(ipcMain) {
     try {
       const { token, name, assignedUserId, niche, brandVoice, notes, avatarColor, teamId, browserMode } = args;
       requireManagerOrAdmin(token);
-      const mode = browserMode === 'cloakmanager' ? 'cloakmanager' : 'electron';
+      const mode = browserMode === 'electron' ? 'electron' : 'cloakmanager';
       const info = getDb()
         .prepare(
           'INSERT INTO model_profiles (name, assigned_user_id, niche, brand_voice, notes, avatar_color, team_id, browser_mode) VALUES (?,?,?,?,?,?,?,?)'
