@@ -90,6 +90,13 @@ function register(ipcMain) {
             .all(user.id, user.id);
     for (const r of rows) {
       r.members = listAssignments(r.id);
+      try {
+        r.accounts = getDb().prepare(
+          'SELECT id, username, platform, status FROM reddit_accounts WHERE profile_id = ? ORDER BY platform, username'
+        ).all(r.id);
+      } catch {
+        r.accounts = [];
+      }
     }
     return { ok: true, profiles: rows };
   });

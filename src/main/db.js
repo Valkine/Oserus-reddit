@@ -1153,7 +1153,7 @@ function initDatabase() {
       db.exec(`
         CREATE TABLE user_browser_settings (
           user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          default_browser_mode TEXT NOT NULL CHECK(default_browser_mode IN ('electron', 'cloakmanager')) DEFAULT 'electron',
+          default_browser_mode TEXT NOT NULL CHECK(default_browser_mode IN ('electron', 'cloakmanager')) DEFAULT 'cloakmanager',
           cloakmanager_url TEXT NOT NULL DEFAULT 'http://127.0.0.1:7331',
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )

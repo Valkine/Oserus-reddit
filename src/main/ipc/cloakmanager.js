@@ -92,6 +92,13 @@ async function ensureModelCmProfile(profileId, opts = {}) {
 
   if (!result.ok) return result;
 
+  try {
+    const { prepareProfile } = require('../services/profilePrep');
+    prepareProfile(cmName);
+  } catch (e) {
+    console.warn('[CloakManager] prepareProfile error:', e.message);
+  }
+
   db.prepare('UPDATE model_profiles SET browser_mode = ?, cloak_profile_name = ? WHERE id = ?').run('cloakmanager', cmName, profileId);
 
   const existing = db.prepare('SELECT 1 FROM cloakmanager_profiles WHERE profile_id = ? AND account_id IS NULL').get(profileId);
@@ -116,6 +123,14 @@ function registerCloakmanagerHandlers(ipcMain, mainWindow, app) {
   // Initialize CDP orchestrator with CloakManager client
   cdpOrchestrator.initialize(mainWindow, client);
   console.log('[IPC] CDP orchestrator initialized');
+
+  // Ensure all existing profiles have search and session restore configured
+  try {
+    const { prepareAllProfiles } = require('../services/profilePrep');
+    prepareAllProfiles();
+  } catch (e) {
+    console.warn('[IPC] prepareAllProfiles error:', e.message);
+  }
 
   const relay = (channel, data) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data);

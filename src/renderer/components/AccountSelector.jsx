@@ -55,8 +55,8 @@ export default function AccountSelector({
 
   // Get browser mode for an account (reads from model-level resolved_browser_mode)
   const getBrowserMode = useCallback((account) => {
-    if (!account) return 'electron';
-    return account.resolved_browser_mode || 'electron';
+    if (!account) return 'cloakmanager';
+    return account.resolved_browser_mode || 'cloakmanager';
   }, []);
 
   const cmProfileName = (account) => account && (account.effective_cm_name || account.cloak_actual_name);

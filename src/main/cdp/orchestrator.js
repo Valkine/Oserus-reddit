@@ -198,6 +198,13 @@ async function runLaunch(profileName, state) {
 
     let cdpInfo = null;
     if (!alreadyUp) {
+      try {
+        const { prepareProfile } = require('../services/profilePrep');
+        prepareProfile(profileName);
+      } catch (prepErr) {
+        elog.warn('[CDP Orchestrator] prepareProfile non-fatal error:', prepErr.message);
+      }
+
       const launchResult = await client.launchProfile(profileName).catch((e) => {
         throw new LaunchFailed(e.message, { cause: e });
       });

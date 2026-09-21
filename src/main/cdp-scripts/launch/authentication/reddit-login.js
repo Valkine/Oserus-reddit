@@ -36,11 +36,36 @@ const metadata = {
  * @returns {Promise<Object>} Login result
  */
 async function execute(nativeConnection, context) {
-  const { page } = nativeConnection;
+  const { page: initialPage, context: browserContext } = nativeConnection;
   const { credentials, accountId, platform } = context;
 
   console.log('[Reddit Login] Starting auto-login for account:', accountId);
   console.log('[Reddit Login] Using native Playwright API');
+
+  // Pick or create target page without overwriting past history tabs
+  let page = initialPage;
+  if (browserContext && typeof browserContext.pages === 'function') {
+    const pages = browserContext.pages();
+    const redditPage = pages.find(p => {
+      try { return p.url().includes('reddit.com'); } catch { return false; }
+    });
+    if (redditPage) {
+      page = redditPage;
+    } else {
+      const blankPage = pages.find(p => {
+        try {
+          const u = p.url();
+          return !u || u === 'about:blank' || u.startsWith('chrome://');
+        } catch { return false; }
+      });
+      if (blankPage) {
+        page = blankPage;
+      } else if (pages.length > 0) {
+        console.log('[Reddit Login] Preserving past history tabs, opening login in new tab');
+        page = await browserContext.newPage();
+      }
+    }
+  }
 
   // CRITICAL: Add random delay at start to stagger simultaneous launches
   // This prevents multiple profiles from hitting Reddit at exactly the same time
@@ -55,10 +80,12 @@ async function execute(nativeConnection, context) {
 
     console.log('[Reddit Login] Proceeding with login for user:', credentials.username);
 
-    // Navigate to Reddit login page
-    await page.goto('https://www.reddit.com/login/', {
-      waitUntil: 'domcontentloaded'
-    });
+    // Only navigate to login if not already on Reddit
+    if (!page.url().includes('reddit.com')) {
+      await page.goto('https://www.reddit.com/login/', {
+        waitUntil: 'domcontentloaded'
+      });
+    }
 
     // Check if already logged in using resilient locator
     // Native Playwright: getByTestId() is more reliable than querySelector

@@ -360,7 +360,7 @@ export default function ModelDetailPage({ modelId, navigate }) {
               one tab per linked account. CloakManager mode: the model's
               shared external browser. Mode is resolved server-side. */}
           <button
-            title={(model.browser_mode || 'electron') === 'cloakmanager'
+            title={(model.browser_mode || 'cloakmanager') === 'cloakmanager'
               ? "Open this model's shared CloakManager browser"
               : 'Open one window with a tab per linked account'}
             disabled={launchingId === 'model'}
@@ -378,7 +378,7 @@ export default function ModelDetailPage({ modelId, navigate }) {
             }}
             style={{ ...playBtnStyle, opacity: launchingId === 'model' ? 0.6 : 1 }}
           >{launchingId === 'model' ? '⏳ Launching…' : '▶ Open Browser'}</button>
-          <ModeBadge mode={(model.browser_mode || 'electron') === 'cloakmanager' ? 'cloakmanager' : 'electron'} />
+          <ModeBadge mode={(model.browser_mode || 'cloakmanager') === 'cloakmanager' ? 'cloakmanager' : 'electron'} />
         </div>
       </div>
 
@@ -440,7 +440,7 @@ export default function ModelDetailPage({ modelId, navigate }) {
               { v: 'electron', label: 'Electron', hint: 'Built-in browser with shared fingerprint per model' },
               { v: 'cloakmanager', label: 'CloakManager', hint: 'External antidetect browser — one shared instance per model, used by every linked account on any platform' },
             ]}
-            value={model.browser_mode || 'electron'}
+            value={model.browser_mode || 'cloakmanager'}
             onChange={provisionCmProfile}
           />
           {model.browser_mode === 'cloakmanager' && model.cloak_profile_name && (
@@ -631,7 +631,7 @@ export default function ModelDetailPage({ modelId, navigate }) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {platAccounts.map(a => {
-                  const browserMode = model?.browser_mode || 'electron';
+                  const browserMode = model?.browser_mode || 'cloakmanager';
                   const modeConfig = BROWSER_MODES[browserMode] || BROWSER_MODES.electron;
                   const isRunning = a.cloak_actual_name && cloakStatus[a.cloak_actual_name] === 'running';
                   const isLaunching = launchingId === a.id;
@@ -886,7 +886,7 @@ export default function ModelDetailPage({ modelId, navigate }) {
 
       {(showAddPlatform || editing) && (() => {
         const modalPlat = PLATFORMS.find(p => p.v === (editing ? editing.platform : showAddPlatform)) || PLATFORMS[0];
-        const isCmMode = (model.browser_mode || 'electron') === 'cloakmanager';
+        const isCmMode = (model.browser_mode || 'cloakmanager') === 'cloakmanager';
         return (
           <div className="modal-overlay" onClick={cancel}>
           <form onSubmit={submit} onClick={(e) => e.stopPropagation()} style={{

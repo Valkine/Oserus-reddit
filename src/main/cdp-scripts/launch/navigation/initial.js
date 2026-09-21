@@ -30,7 +30,7 @@ const metadata = {
  * @returns {Promise<Object>} Navigation result
  */
 async function execute(nativeConnection, context) {
-  const { page } = nativeConnection;
+  const { page, context: browserContext } = nativeConnection;
   const { platform, profileName } = context;
 
   console.log('[Initial Navigation] Starting for platform:', platform);
@@ -47,12 +47,40 @@ async function execute(nativeConnection, context) {
     };
 
     const homeUrl = homePages[platform] || homePages.reddit;
+    const domainKeyword = platform === 'reddit' ? 'reddit.com' : platform === 'x' ? 'x.com' : platform;
+
+    // Pick or create target page without overwriting past history tabs
+    let targetPage = page;
+    if (browserContext && typeof browserContext.pages === 'function') {
+      const pages = browserContext.pages();
+      const existingPage = pages.find(p => {
+        try { return p.url().includes(domainKeyword); } catch { return false; }
+      });
+
+      if (existingPage) {
+        console.log('[Initial Navigation] Found existing platform tab, bringing to front:', existingPage.url());
+        await existingPage.bringToFront().catch(() => {});
+        return { success: true, url: existingPage.url(), platform };
+      }
+
+      const blankPage = pages.find(p => {
+        try {
+          const u = p.url();
+          return !u || u === 'about:blank' || u.startsWith('chrome://');
+        } catch { return false; }
+      });
+
+      if (blankPage) {
+        targetPage = blankPage;
+      } else if (pages.length > 0) {
+        console.log('[Initial Navigation] Preserving past history tabs, opening platform in new tab');
+        targetPage = await browserContext.newPage();
+      }
+    }
 
     console.log('[Initial Navigation] Navigating to:', homeUrl);
-
-    // Native Playwright: single call with auto-waiting
-    // No manual sleep needed - Playwright waits automatically
-    await page.goto(homeUrl, { waitUntil: 'domcontentloaded' });
+    await targetPage.goto(homeUrl, { waitUntil: 'domcontentloaded' });
+    await targetPage.bringToFront().catch(() => {});
 
     console.log('[Initial Navigation] ✅ Navigation complete for:', platform);
     return {

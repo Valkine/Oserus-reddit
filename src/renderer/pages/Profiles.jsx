@@ -3,6 +3,8 @@ import { useAuth } from '../lib/auth.jsx';
 import { useCan } from '../lib/permissions.jsx';
 import { useCloudReload } from '../lib/cloudReload.jsx';
 import { useCloakManagerLaunch } from '../hooks/useCloakManagerLaunch';
+import { useActiveAccount } from '../lib/activeAccount.jsx';
+import { launchModelBrowser, launchAccountBrowser } from '../lib/launchAccount.js';
 import { EmptyState } from '../components/ui.jsx';
 import { useToast } from '../lib/toast.jsx';
 import { useConfirm } from '../lib/confirm.jsx';
@@ -13,13 +15,16 @@ const COLORS = ['#c8553d', 'var(--gold)', 'var(--green-bright)', '#5a7a9a', '#9a
 
 export default function ProfilesPage({ navigate }) {
   const { token, user, activeTeamId } = useAuth();
-  const { isAvailable, cmBaseUrl, checkAvailability, checkAvailabilityWithRetry, startCloakManager } = useCloakManagerLaunch();
+  const { isAvailable, cmBaseUrl, checkAvailability, checkAvailabilityWithRetry, startCloakManager, cloakStatus } = useCloakManagerLaunch();
+  const { startAccount } = useActiveAccount();
   const [startingCm, setStartingCm] = useState(false);
   const [cmMsg, setCmMsg] = useState(null);
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const [profiles, setProfiles] = useState([]);
   const [loadingSkel, setLoadingSkel] = useState(true);
+  const [launchingId, setLaunchingId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -33,7 +38,31 @@ export default function ProfilesPage({ navigate }) {
   const canManage = can('profiles.manage');
 
   function blank() {
-    return { name: '', assigned_user_id: '', niche: '', brand_voice: '', notes: '', avatar_color: COLORS[0], browser_mode: 'electron' };
+    return { name: '', assigned_user_id: '', niche: '', brand_voice: '', notes: '', avatar_color: COLORS[0], browser_mode: 'cloakmanager' };
+  }
+
+  async function handleLaunchModel(profileId) {
+    setLaunchingId(`model-${profileId}`);
+    try {
+      const res = await launchModelBrowser({ token, profileId: Number(profileId) });
+      if (res && !res.ok) {
+        toast('err', `Failed to launch browser: ${res.error || 'Unknown error'}`);
+      }
+    } finally {
+      setLaunchingId(null);
+    }
+  }
+
+  async function handleLaunchAccount(accountId) {
+    setLaunchingId(`account-${accountId}`);
+    try {
+      const res = await launchAccountBrowser({ token, accountId, startAccount });
+      if (res && !res.ok) {
+        toast('err', `Failed to launch account: ${res.error || 'Unknown error'}`);
+      }
+    } finally {
+      setLaunchingId(null);
+    }
   }
 
   async function load() {
@@ -246,13 +275,13 @@ export default function ProfilesPage({ navigate }) {
             <div>
               <label>Browser mode</label>
               <select value={form.browser_mode} onChange={(e) => setForm({ ...form, browser_mode: e.target.value })}>
-                <option value="electron">Electron (default)</option>
-                <option value="cloakmanager">CloakManager</option>
+                <option value="cloakmanager">CloakManager (default)</option>
+                <option value="electron">Electron</option>
               </select>
               <div className="muted" style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>
                 {form.browser_mode === 'cloakmanager'
-                  ? "One shared antidetect browser profile is created for this model right now."
-                  : 'Built-in Oserus Browser, one session per account. Can switch to CloakManager later.'}
+                  ? "Antidetect browser profile with persistent history, tabs, and fingerprint isolation."
+                  : 'Built-in Oserus Browser, one session per account.'}
               </div>
             </div>
           </div>
@@ -271,31 +300,148 @@ export default function ProfilesPage({ navigate }) {
         </form>
       )}
 
+      {/* Quick Search and Filter Bar */}
+      {profiles.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search models, niches, accounts…"
+              style={{ paddingLeft: 30, width: '100%' }}
+            />
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.5, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+          </div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Showing {profiles.filter(p => !searchQuery.trim() ? true : (
+              (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+              (p.niche && p.niche.toLowerCase().includes(searchQuery.toLowerCase())) ||
+              (p.assigned_to_username && p.assigned_to_username.toLowerCase().includes(searchQuery.toLowerCase())) ||
+              (p.accounts && p.accounts.some(a => a.username && a.username.toLowerCase().includes(searchQuery.toLowerCase())))
+            )).length} of {profiles.length} models
+          </div>
+        </div>
+      )}
+
       {profiles.length === 0 ? (
         <EmptyState icon="◇" title="No model profiles yet" hint="Create your first model profile to start organizing accounts by brand or persona." action={canManage && <button className="primary" onClick={() => setShowAdd(true)}>+ New model</button>} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
-          {profiles.map((p) => (
-            <div key={p.id} className="card" data-profile-id={p.id} style={{ borderLeft: `3px solid ${p.avatar_color || 'var(--accent)'}`, padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: 18, position: 'relative' }}>
-                <div
-                  onClick={() => navigate && navigate('model', { modelId: p.id })}
-                  style={{ cursor: 'pointer' }}
-                  title={`Open ${p.name} profile`}
-                >
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-                  <h3>{p.name}</h3>
-                  {p.niche && <span className="pill">{p.niche}</span>}
-                  <div style={{ flex: 1 }} />
-                </div>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
-                  {p.account_count} accounts ({p.ready_count} ready)
-                  {p.assigned_to_name && <> · assigned to <span style={{ color: 'var(--text-1)' }}>{p.assigned_to_username}</span></>}
-                </div>
-                {p.brand_voice && <div className="muted" style={{ fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>"{p.brand_voice}"</div>}
-                {p.notes && <div className="muted" style={{ fontSize: 12 }}>{p.notes}</div>}
-                </div>
-              </div>
+          {profiles
+            .filter((p) => {
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase();
+              return (
+                (p.name && p.name.toLowerCase().includes(q)) ||
+                (p.niche && p.niche.toLowerCase().includes(q)) ||
+                (p.assigned_to_username && p.assigned_to_username.toLowerCase().includes(q)) ||
+                (p.brand_voice && p.brand_voice.toLowerCase().includes(q)) ||
+                (p.accounts && p.accounts.some(a => a.username && a.username.toLowerCase().includes(q)))
+              );
+            })
+            .map((p) => {
+              const isCm = (p.browser_mode || 'cloakmanager') === 'cloakmanager';
+              const isRunning = p.cloak_profile_name && cloakStatus && cloakStatus[p.cloak_profile_name] === 'running';
+              const isModelLaunching = launchingId === `model-${p.id}`;
+
+              return (
+                <div key={p.id} className="card" data-profile-id={p.id} style={{ borderLeft: `3px solid ${p.avatar_color || 'var(--accent)'}`, padding: 0, overflow: 'hidden' }}>
+                  <div style={{ padding: 18, position: 'relative' }}>
+                    <div
+                      onClick={() => navigate && navigate('model', { modelId: p.id })}
+                      style={{ cursor: 'pointer' }}
+                      title={`Open ${p.name} profile details`}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                        <h3 style={{ margin: 0 }}>{p.name}</h3>
+                        {p.niche && <span className="pill">{p.niche}</span>}
+                        <div style={{ flex: 1 }} />
+                        <span style={{
+                          fontSize: 10, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                          background: isCm ? 'rgba(155,89,182,0.15)' : 'rgba(74,144,226,0.15)',
+                          color: isCm ? '#ba7ad8' : '#4a90e2',
+                          border: `1px solid ${isCm ? 'rgba(155,89,182,0.3)' : 'rgba(74,144,226,0.3)'}`,
+                          fontWeight: 600,
+                        }}>
+                          {isCm ? '👻 CloakManager' : '⚡ Electron'}
+                        </span>
+                        {isRunning && (
+                          <span style={{
+                            fontSize: 9, padding: '2px 6px', borderRadius: 'var(--radius-pill)',
+                            background: 'rgba(122,154,90,0.2)', color: 'var(--online-green)',
+                            border: '1px solid rgba(122,154,90,0.4)', fontWeight: 700,
+                          }}>
+                            ● RUNNING
+                          </span>
+                        )}
+                      </div>
+                      <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+                        {p.account_count} accounts ({p.ready_count} ready)
+                        {p.assigned_to_name && <> · assigned to <span style={{ color: 'var(--text-1)' }}>{p.assigned_to_username}</span></>}
+                      </div>
+                      {p.brand_voice && <div className="muted" style={{ fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>"{p.brand_voice}"</div>}
+                      {p.notes && <div className="muted" style={{ fontSize: 12 }}>{p.notes}</div>}
+                    </div>
+
+                    {/* 1-Click Launch Action Row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
+                      <button
+                        className="primary"
+                        disabled={isModelLaunching}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLaunchModel(p.id);
+                        }}
+                        style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                        title={isRunning ? 'Browser is already running — click to focus or bring to front' : `Launch ${p.name}'s browser with past history`}
+                      >
+                        {isModelLaunching ? '⏳ Launching…' : isRunning ? '● Open Browser' : '▶ Open Browser'}
+                      </button>
+                      <button
+                        className="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate && navigate('model', { modelId: p.id });
+                        }}
+                        style={{ fontSize: 12, padding: '5px 10px' }}
+                      >
+                        Manage accounts →
+                      </button>
+                    </div>
+
+                    {/* Quick Account Chips */}
+                    {p.accounts && p.accounts.length > 0 && (
+                      <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {p.accounts.map((a) => {
+                          const isAcctLaunching = launchingId === `account-${a.id}`;
+                          return (
+                            <button
+                              key={a.id}
+                              type="button"
+                              disabled={isAcctLaunching}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLaunchAccount(a.id);
+                              }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                background: 'var(--bg-2)', border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-pill)', padding: '2px 8px', fontSize: 11,
+                                cursor: isAcctLaunching ? 'not-allowed' : 'pointer',
+                                color: 'var(--text-1)',
+                              }}
+                              title={`Launch ${a.platform} account as ${a.username} (keeps past history tabs)`}
+                            >
+                              <span style={{ fontSize: 10 }}>{a.platform === 'reddit' ? '🔴' : '🌐'}</span>
+                              <span>{a.username}</span>
+                              <span style={{ color: 'var(--gold)', fontSize: 10 }}>{isAcctLaunching ? '⏳' : '▶'}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
               {(p.members && p.members.length > 0) && (
                 <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', background: 'var(--bg-1)' }}>
                   <div className="dim" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Team</div>

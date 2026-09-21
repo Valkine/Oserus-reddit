@@ -17,8 +17,8 @@ const BROWSER_MODES = {
 
 // Helper to get browser mode for an account (reads from model-level resolved_browser_mode)
 function getBrowserMode(account) {
-  if (!account) return 'electron';
-  return account.resolved_browser_mode || 'electron';
+  if (!account) return 'cloakmanager';
+  return account.resolved_browser_mode || 'cloakmanager';
 }
 
 // Platform-filtered switcher. `platform` prop: 'reddit' or 'redgifs'.
