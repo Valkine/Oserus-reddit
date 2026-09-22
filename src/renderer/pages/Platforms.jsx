@@ -6,17 +6,40 @@ import { useToast } from '../lib/toast.jsx';
 import { useConfirm } from '../lib/confirm.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 
-export default function PlatformsPage({ navigate }) {
-  const { token } = useAuth();
+const PRESETS = [
+  { key: 'onlyfans', label: 'OnlyFans', short: 'OF', color: '#00AFF0', home_url: 'https://onlyfans.com', login_url: 'https://onlyfans.com', username_prefix: '@', icon: '🔞' },
+  { key: 'fansly', label: 'Fansly', short: 'FN', color: '#1EA1F2', home_url: 'https://fansly.com', login_url: 'https://fansly.com', username_prefix: '@', icon: '💙' },
+  { key: 'fanvue', label: 'Fanvue', short: 'FV', color: '#26B97E', home_url: 'https://www.fanvue.com', login_url: 'https://www.fanvue.com', username_prefix: '@', icon: '✨' },
+  { key: 'loyalfans', label: 'LoyalFans', short: 'LF', color: '#FF2442', home_url: 'https://www.loyalfans.com', login_url: 'https://www.loyalfans.com', username_prefix: '@', icon: '👑' },
+  { key: 'manyvids', label: 'ManyVids', short: 'MV', color: '#F7941D', home_url: 'https://www.manyvids.com', login_url: 'https://www.manyvids.com', username_prefix: '@', icon: '🎬' },
+  { key: 'snapchat', label: 'Snapchat', short: 'SC', color: '#FFFC00', home_url: 'https://web.snapchat.com', login_url: 'https://accounts.snapchat.com', username_prefix: '@', icon: '👻' },
+  { key: 'telegram', label: 'Telegram', short: 'TG', color: '#24A1DE', home_url: 'https://web.telegram.org', login_url: 'https://web.telegram.org', username_prefix: '@', icon: '✈️' },
+  { key: 'threads', label: 'Threads', short: 'TH', color: '#000000', home_url: 'https://www.threads.net', login_url: 'https://www.threads.net/login', username_prefix: '@', icon: '🧵' },
+  { key: 'patreon', label: 'Patreon', short: 'PT', color: '#FF424D', home_url: 'https://www.patreon.com', login_url: 'https://www.patreon.com/login', username_prefix: '@', icon: '🎨' },
+  { key: 'twitch', label: 'Twitch', short: 'TW', color: '#9146FF', home_url: 'https://www.twitch.tv', login_url: 'https://www.twitch.tv/login', username_prefix: '@', icon: '🎮' },
+  { key: 'kick', label: 'Kick', short: 'KK', color: '#53FC18', home_url: 'https://kick.com', login_url: 'https://kick.com', username_prefix: '@', icon: '🟢' },
+];
+
+export default function PlatformsPage({ navigate, routeParams }) {
+  const { token, activeTeamId } = useAuth();
   const can = useCan();
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const canManage = can('profiles.manage');
   const [platforms, setPlatforms] = useState([]);
+  const [models, setModels] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(blankForm());
   const [error, setError] = useState(null);
+
+  // Link to model modal
+  const [linkingPlatform, setLinkingPlatform] = useState(null);
+  const [linkModelId, setLinkModelId] = useState('');
+  const [linkUsername, setLinkUsername] = useState('');
+  const [linkPassword, setLinkPassword] = useState('');
+  const [linkError, setLinkError] = useState(null);
+  const [linkingSaving, setLinkingSaving] = useState(false);
 
   function blankForm() {
     return { key: '', label: '', short: '', color: '#888888', home_url: '', login_url: '', username_prefix: '@', icon: '' };
@@ -24,10 +47,20 @@ export default function PlatformsPage({ navigate }) {
 
   async function load() {
     const res = await window.api.platforms.list();
-    if (res.ok) setPlatforms(res.platforms);
+    if (res.ok) setPlatforms(res.platforms || []);
+    if (token) {
+      const mRes = await window.api.profiles.list({ token, teamId: activeTeamId }).catch(() => ({ ok: false }));
+      if (mRes && mRes.ok) setModels(mRes.profiles || []);
+    }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [token, activeTeamId]);
+
+  useEffect(() => {
+    if (routeParams?.openAdd) {
+      startAdd();
+    }
+  }, [routeParams]);
 
   function startAdd() {
     setEditing(null);
@@ -50,6 +83,29 @@ export default function PlatformsPage({ navigate }) {
     });
     setError(null);
     setShowForm(true);
+  }
+
+  async function installPreset(preset) {
+    const res = await window.api.platforms.create({
+      token,
+      platform: {
+        key: preset.key,
+        label: preset.label,
+        short: preset.short,
+        color: preset.color,
+        home_url: preset.home_url,
+        login_url: preset.login_url,
+        username_prefix: preset.username_prefix || '@',
+        icon: preset.icon,
+      },
+    });
+    if (!res.ok) {
+      toast('err', res.error || 'Failed to install platform');
+      return;
+    }
+    toast('ok', `Installed ${preset.label} preset`);
+    await load();
+    await refreshPlatforms();
   }
 
   async function submit(e) {
@@ -106,6 +162,41 @@ export default function PlatformsPage({ navigate }) {
     await refreshPlatforms();
   }
 
+  async function submitLinkToModel(e) {
+    e.preventDefault();
+    setLinkError(null);
+    if (!linkModelId) { setLinkError('Please select a model'); return; }
+    if (!linkUsername.trim()) { setLinkError('Username is required'); return; }
+
+    setLinkingSaving(true);
+    try {
+      const cleanUser = linkUsername.trim().replace(/^[@u/]+/, '');
+      const res = await window.api.accounts.create({
+        token,
+        profileId: Number(linkModelId),
+        platform: linkingPlatform.key,
+        username: cleanUser,
+        password: linkPassword.trim() || undefined,
+        teamId: activeTeamId,
+      });
+
+      if (!res.ok) {
+        setLinkError(res.error || 'Failed to link account');
+        return;
+      }
+
+      const targetModel = models.find(m => m.id === Number(linkModelId));
+      toast('ok', `Linked @${cleanUser} (${linkingPlatform.label}) to ${targetModel?.name || 'model'}!`);
+      setLinkingPlatform(null);
+      setLinkModelId('');
+      setLinkUsername('');
+      setLinkPassword('');
+      await load();
+    } finally {
+      setLinkingSaving(false);
+    }
+  }
+
   if (!canManage) {
     return (
       <div style={{ padding: 48, textAlign: 'center' }}>
@@ -124,6 +215,59 @@ export default function PlatformsPage({ navigate }) {
         subtitle="Manage the websites and social platforms your models use. Built-in platforms have specialized automation; custom platforms get browser sessions with fingerprint isolation."
       />
 
+      {/* 1-Click Creator Presets Catalog */}
+      <div className="card" style={{ marginBottom: 24, background: 'var(--bg-elev)', border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--gold-bright)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>⚡</span>
+              <span>1-Click Popular Creator Presets</span>
+            </div>
+            <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>
+              Install instant browser profile presets configured with icons, colors, and login endpoints.
+            </div>
+          </div>
+          <button className="primary" onClick={startAdd} style={{ fontSize: 12 }}>+ Custom Platform</button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 8 }}>
+          {PRESETS.map(pr => {
+            const isInstalled = platforms.some(p => p.key === pr.key);
+            return (
+              <div
+                key={pr.key}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 10px', borderRadius: 'var(--radius)',
+                  background: 'var(--bg-1)', border: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                  <span style={{ fontSize: 14 }}>{pr.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pr.label}
+                  </span>
+                </div>
+                {isInstalled ? (
+                  <span style={{ fontSize: 10, color: 'var(--online-green)', fontWeight: 600 }}>✓ Added</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => installPreset(pr)}
+                    style={{ fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-2)' }}
+                    title={`Install ${pr.label} preset`}
+                  >
+                    + Install
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Add / Edit Platform Modal */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <form onSubmit={submit} onClick={e => e.stopPropagation()} style={{
@@ -200,11 +344,85 @@ export default function PlatformsPage({ navigate }) {
         </div>
       )}
 
-      <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 14 }}>All platforms</h2>
+      {/* Link Account to Model Modal */}
+      {linkingPlatform && (
+        <div className="modal-overlay" onClick={() => setLinkingPlatform(null)}>
+          <form onSubmit={submitLinkToModel} onClick={e => e.stopPropagation()} style={{
+            width: 460, background: 'var(--bg-elev)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)', padding: 22,
+          }} className="modal-card">
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>{linkingPlatform.icon || '🌐'}</span>
+                  <span>Link Account: {linkingPlatform.label}</span>
+                </h3>
+                <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>
+                  Create and assign a designated {linkingPlatform.label} account to any model.
+                </div>
+              </div>
+              <button type="button" onClick={() => setLinkingPlatform(null)} style={{
+                width: 26, height: 26, borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)', background: 'var(--bg-2)',
+                color: 'var(--text-2)', cursor: 'pointer', display: 'grid',
+                placeItems: 'center', fontSize: 13, padding: 0,
+              }}>×</button>
+            </div>
+
+            {linkError && <div className="error-banner" style={{ marginBottom: 12 }}>{linkError}</div>}
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Select Model *</label>
+              <select
+                value={linkModelId}
+                onChange={e => setLinkModelId(e.target.value)}
+                required
+                style={{ width: '100%' }}
+              >
+                <option value="">— Select Model —</option>
+                {models.map(m => (
+                  <option key={m.id} value={m.id}>{m.name} {m.niche ? `(${m.niche})` : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Username *</label>
+              <input
+                value={linkUsername}
+                onChange={e => setLinkUsername(e.target.value)}
+                placeholder={`e.g. ${linkingPlatform.username_prefix || '@'}handle`}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Password (optional, encrypted in vault)</label>
+              <input
+                type="password"
+                value={linkPassword}
+                onChange={e => setLinkPassword(e.target.value)}
+                placeholder="Account password"
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="ghost" onClick={() => setLinkingPlatform(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" disabled={linkingSaving}>
+                {linkingSaving ? 'Saving…' : 'Attach Account to Model'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Platforms Directory */}
+      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 14 }}>Active Platforms</h2>
         <span className="mono dim" style={{ fontSize: 12 }}>{platforms.length} configured</span>
-        <div style={{ flex: 1 }} />
-        <button className="primary" onClick={startAdd}>+ Add platform</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -221,9 +439,9 @@ export default function PlatformsPage({ navigate }) {
               background: p.color || '#888',
             }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 {p.icon && <span>{p.icon}</span>}
-                {p.label}
+                <span>{p.label}</span>
                 <span className="mono dim" style={{ fontSize: 11 }}>{p.key}</span>
                 {p.is_builtin ? (
                   <span style={{
@@ -236,15 +454,41 @@ export default function PlatformsPage({ navigate }) {
                     background: 'rgba(155,89,182,0.2)', color: '#9b59b6', fontWeight: 700,
                   }}>CUSTOM</span>
                 )}
+                <span style={{
+                  fontSize: 10, padding: '1px 8px', borderRadius: 'var(--radius-pill)',
+                  background: 'var(--bg-2)', border: '1px solid var(--border)',
+                  color: (p.account_count > 0 ? 'var(--gold-bright)' : 'var(--text-3)'),
+                }}>
+                  {p.account_count || 0} active account{p.account_count === 1 ? '' : 's'}
+                </span>
               </div>
               <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>
                 {p.home_url || 'No URL set'}
                 {p.username_prefix && ` · prefix: ${p.username_prefix}`}
               </div>
             </div>
-            <button className="ghost" onClick={() => startEdit(p)}>Edit</button>
+
+            <button
+              className="ghost"
+              onClick={() => {
+                setLinkingPlatform(p);
+                setLinkModelId('');
+                setLinkUsername('');
+                setLinkPassword('');
+                setLinkError(null);
+              }}
+              style={{ fontSize: 11, padding: '4px 10px', color: 'var(--gold-bright)' }}
+              title="Link an account of this platform to any model"
+            >
+              + Link to Model
+            </button>
+            <button className="ghost" onClick={() => startEdit(p)} style={{ fontSize: 11, padding: '4px 10px' }}>
+              Edit
+            </button>
             {!p.is_builtin && (
-              <button className="danger" onClick={() => remove(p)}>Delete</button>
+              <button className="danger" onClick={() => remove(p)} style={{ fontSize: 11, padding: '4px 10px' }}>
+                Delete
+              </button>
             )}
           </div>
         ))}

@@ -136,7 +136,7 @@ function Inner() {
       case 'reddit-api':
       case 'inbox':
         return <RedditApiPage navigate={navigate} />;
-      case 'profiles': return <ProfilesPage navigate={navigate} />;
+      case 'profiles': return <ProfilesPage navigate={navigate} routeParams={routeParams} />;
       case 'model': return <ModelDetailPage modelId={routeParams.modelId} navigate={navigate} />;
       // 'users' + 'activity' both land on the Management Hub now —
       // each former page is a section inside Dashboard.
@@ -159,7 +159,7 @@ function Inner() {
       case 'scheduler-pro': return <SchedulerProPage navigate={navigate} />;
       case 'intel': return <IntelligencePage initialTab={routeParams.tab} />;
       case 'add-accounts': return <AddAccountsPage navigate={navigate} initialTab={routeParams.tab} />;
-      case 'platforms': return <PlatformsPage navigate={navigate} />;
+      case 'platforms': return <PlatformsPage navigate={navigate} routeParams={routeParams} />;
       default: return <DashboardPage navigate={navigate} />;
     }
   })();

@@ -41,6 +41,7 @@ const api = {
   profiles: {
     list: (data) => ipcRenderer.invoke('profiles:list', data),
     create: (data) => ipcRenderer.invoke('profiles:create', data),
+    createWithAccounts: (data) => ipcRenderer.invoke('profiles:createWithAccounts', data),
     update: (data) => ipcRenderer.invoke('profiles:update', data),
     assign: (data) => ipcRenderer.invoke('profiles:assign', data),
     delete: (data) => ipcRenderer.invoke('profiles:delete', data),

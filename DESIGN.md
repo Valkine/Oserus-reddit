@@ -1,7 +1,7 @@
 # OSERUS MANAGEMENT — MASTER ARCHITECTURE & DESIGN SPECIFICATION (DESIGN.md)
 *The definitive product, architectural, operational, and aesthetic blueprint for Oserus Management.*  
 *Target Audience: AI Engineering Agents, System Architects, Full-Stack Developers, and Human Operators.*  
-*Current System Version: v0.86.20+ · Last Updated: September 2026*
+*Current System Version: v0.86.21+ · Last Updated: September 2026*
 
 ---
 
@@ -558,8 +558,27 @@ Oserus-reddit/
 │           ├── Team.jsx          # Dedicated 4-tab Team Hub (Roster, Shifts, Custom Roles, License Scale)
 │           ├── Settings.jsx      # Creator platform connections, proxies, AI API keys
 │           ├── Inbox.jsx         # Infloww-style chatter CRM with multi-model quick switcher
+│           ├── Platforms.jsx     # 1-click presets catalog, platform link manager, account stats
 │           └── Scripts.jsx       # Reusable chatter script sets and PPV media vault
 ```
+
+### 13.2 Navigation Zones, Command Palette & Workflow Ergonomics (v0.86.21+)
+1. **Three Agency Navigation Zones (`Shell.jsx`)**:
+   - **Operations**: `Dashboard`, `Models`, `Inbox & Chat`, `Analytics & Revenue`.
+   - **Traffic & Auto**: `Scheduler Pro`, `Automation & Autopilot`, `Scripts & Macros`, `Intelligence`.
+   - **Agency System**: `Team & Access`, `Platforms & Presets`, `Configuration`.
+2. **Global Command Palette / Spotlight (`Ctrl+K`)**:
+   - Floating quick-jump spotlight accessible anywhere via `Ctrl+K` (or `Cmd+K`) or the header search button.
+   - Instant search across all models, platforms, and application pages with keyboard arrow navigation.
+3. **Actionable Platforms Directory (`Platforms.jsx`)**:
+   - 1-Click popular presets catalog (OnlyFans, Fansly, Fanvue, LoyalFans, ManyVids, Snapchat, Telegram, Threads, Patreon, Twitch, Kick).
+   - Live active account count badge per platform.
+   - `[ + Link to Model ]` modal allowing immediate account attachment from any platform card.
+4. **Unified Fast Model & Accounts Onboarding Wizard (`Profiles.jsx`)**:
+   - Replaces the detached empty profile creation flow with an all-in-one wizard powered by `profiles:createWithAccounts`.
+   - Guided Mode: Basic info + quick platform badges + inline username/password inputs.
+   - Bulk Paste Mode: Multi-line paste with instant live badge preview.
+   - Models are immediately launch-ready upon creation.
 
 ---
 

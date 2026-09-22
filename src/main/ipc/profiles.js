@@ -1,4 +1,4 @@
-const { getDb } = require('../db');
+const { getDb, credentialVaultSet } = require('../db');
 const { userFromToken, requireManagerOrAdmin, requireOwnerOrAdmin } = require('./auth');
 const { hasPermission } = require('../permissions');
 const { profileScopeClause } = require('../lib/assignments');
@@ -139,6 +139,97 @@ function register(ipcMain) {
 
       return { ok: true, id: info.lastInsertRowid, cmProfile };
     } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('profiles:createWithAccounts', async (_e, args) => {
+    try {
+      const { token, name, assignedUserId, niche, brandVoice, notes, avatarColor, proxyId, teamId, browserMode, accounts } = args;
+      const user = userFromToken(token);
+      if (!user) throw new Error('Not authenticated');
+      requireOwnerOrAdmin(token);
+
+      if (!name || !name.trim()) throw new Error('Model name is required');
+
+      const mode = browserMode === 'electron' ? 'electron' : 'cloakmanager';
+      const db = getDb();
+
+      const txn = db.transaction(() => {
+        // 1. Create model profile
+        const mInfo = db.prepare(
+          `INSERT INTO model_profiles (name, assigned_user_id, niche, brand_voice, notes, avatar_color, proxy_id, team_id, browser_mode)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          name.trim(),
+          assignedUserId ? Number(assignedUserId) : null,
+          niche ? niche.trim() : null,
+          brandVoice ? brandVoice.trim() : null,
+          notes ? notes.trim() : null,
+          avatarColor || null,
+          proxyId ? Number(proxyId) : null,
+          teamId || null,
+          mode
+        );
+
+        const profileId = mInfo.lastInsertRowid;
+        const createdAccounts = [];
+
+        // 2. Insert designated accounts
+        if (Array.isArray(accounts) && accounts.length > 0) {
+          const insertAcct = db.prepare(`
+            INSERT INTO reddit_accounts
+            (profile_id, platform, username, partition_key, status, proxy_id, team_id)
+            VALUES (?, ?, ?, ?, 'ready', ?, ?)
+          `);
+
+          for (const a of accounts) {
+            const cleanUser = (a.username || '').trim().replace(/^[@u/]+/, '');
+            if (!cleanUser) continue;
+            const platform = (a.platform || 'reddit').toLowerCase();
+            const partKey = `${platform}_${cleanUser.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+            const aInfo = insertAcct.run(
+              profileId,
+              platform,
+              cleanUser,
+              partKey,
+              proxyId ? Number(proxyId) : null,
+              teamId || null
+            );
+            const acctId = aInfo.lastInsertRowid;
+
+            if (a.password) {
+              credentialVaultSet('account_password', acctId, a.password);
+            }
+            createdAccounts.push({ id: acctId, platform, username: cleanUser });
+          }
+        }
+
+        return { profileId, createdAccounts };
+      });
+
+      const { profileId, createdAccounts } = txn();
+
+      let cmProfile = null;
+      if (mode === 'cloakmanager') {
+        try {
+          const { ensureModelCmProfile } = require('./cloakmanager');
+          cmProfile = await ensureModelCmProfile(profileId, {});
+        } catch (cmErr) {
+          console.warn('[profiles] Failed to provision CM profile in createWithAccounts:', cmErr.message);
+        }
+      }
+
+      return {
+        ok: true,
+        id: profileId,
+        accountCount: createdAccounts.length,
+        createdAccounts,
+        cmProfile
+      };
+    } catch (err) {
+      console.error('[profiles] createWithAccounts failed:', err);
       return { ok: false, error: err.message };
     }
   });

@@ -24,7 +24,7 @@ const PLATFORM_ICONS = {
   fanvue: '💜',
 };
 
-export default function ProfilesPage({ navigate }) {
+export default function ProfilesPage({ navigate, routeParams }) {
   const { token, user, activeTeamId } = useAuth();
   const { isAvailable, cmBaseUrl, checkAvailabilityWithRetry, startCloakManager, cloakStatus } = useCloakManagerLaunch();
   const [startingCm, setStartingCm] = useState(false);
@@ -32,6 +32,7 @@ export default function ProfilesPage({ navigate }) {
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const [profiles, setProfiles] = useState([]);
+  const [availablePlatforms, setAvailablePlatforms] = useState([]);
   const [loadingSkel, setLoadingSkel] = useState(true);
   const [launchingId, setLaunchingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,8 +55,75 @@ export default function ProfilesPage({ navigate }) {
   const isAdmin = user?.role === 'admin';
   const canManage = isOwner || isAdmin || can('profiles.manage');
 
+  useEffect(() => {
+    if (routeParams?.openAdd) {
+      setShowAdd(true);
+    }
+  }, [routeParams]);
+
   function blank() {
-    return { name: '', assigned_user_id: '', niche: '', brand_voice: '', notes: '', avatar_color: COLORS[0], browser_mode: 'cloakmanager' };
+    return {
+      name: '',
+      assigned_user_id: '',
+      niche: '',
+      brand_voice: '',
+      notes: '',
+      avatar_color: COLORS[0],
+      proxy_id: '',
+      browser_mode: 'cloakmanager',
+      wizardTab: 'guided',
+      accounts: [
+        { platform: 'onlyfans', username: '', password: '' }
+      ],
+      bulkText: '',
+    };
+  }
+
+  function parseBulkAccounts(text) {
+    if (!text || !text.trim()) return [];
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const out = [];
+    for (const line of lines) {
+      let parts = [];
+      if (line.includes(':')) parts = line.split(':');
+      else if (line.includes(',')) parts = line.split(',');
+      else if (line.includes('|')) parts = line.split('|');
+      else parts = line.split(/\s+/);
+
+      parts = parts.map(p => p.trim());
+      if (parts.length >= 2) {
+        const platform = parts[0].toLowerCase();
+        const username = parts[1].replace(/^[@u/]+/, '');
+        const password = parts.slice(2).join(':').trim() || '';
+        if (username) {
+          out.push({ platform, username, password });
+        }
+      } else if (parts.length === 1 && parts[0]) {
+        out.push({ platform: 'onlyfans', username: parts[0].replace(/^[@u/]+/, ''), password: '' });
+      }
+    }
+    return out;
+  }
+
+  function addAccountRow(plat = 'onlyfans') {
+    setForm(prev => ({
+      ...prev,
+      accounts: [...(prev.accounts || []), { platform: plat, username: '', password: '' }]
+    }));
+  }
+
+  function removeAccountRow(idx) {
+    setForm(prev => ({
+      ...prev,
+      accounts: (prev.accounts || []).filter((_, i) => i !== idx)
+    }));
+  }
+
+  function updateAccountRow(idx, field, val) {
+    setForm(prev => ({
+      ...prev,
+      accounts: (prev.accounts || []).map((acc, i) => i === idx ? { ...acc, [field]: val } : acc)
+    }));
   }
 
   async function handleLaunchModel(profileId) {
@@ -80,14 +148,16 @@ export default function ProfilesPage({ navigate }) {
       const p = await window.api.profiles.list({ token, teamId: activeTeamId }).catch((err) => ({ ok: false, error: err.message }));
       if (p && p.ok) setProfiles(p.profiles || []);
 
-      const [uRes, pxRes, rRes] = await Promise.all([
+      const [uRes, pxRes, rRes, platRes] = await Promise.all([
         canManage ? window.api.auth.listUsers({ token }).catch(() => ({ ok: false })) : Promise.resolve({ ok: false }),
         window.api.proxies.list({ token, teamId: activeTeamId }).catch(() => ({ ok: false })),
         window.api.roles.list({ token }).catch(() => ({ ok: false })),
+        window.api.platforms.list().catch(() => ({ ok: false })),
       ]);
       if (uRes && uRes.ok) setUsers(uRes.users || []);
       if (pxRes && pxRes.ok) setProxies(pxRes.proxies || []);
       if (rRes && rRes.ok) setRoles(rRes.roles || []);
+      if (platRes && platRes.ok) setAvailablePlatforms(platRes.platforms || []);
     } catch (e) {
       console.error('Error loading profiles page:', e);
     } finally {
@@ -122,25 +192,47 @@ export default function ProfilesPage({ navigate }) {
   async function addProfile(e) {
     e.preventDefault();
     setError(null);
-    if (!form.name.trim()) { setError('Name is required'); return; }
-    const res = await window.api.profiles.create({
-      token, name: form.name.trim(),
+    if (!form.name.trim()) { setError('Model name is required'); return; }
+
+    let accountsToCreate = [];
+    if (form.wizardTab === 'bulk') {
+      accountsToCreate = parseBulkAccounts(form.bulkText);
+    } else {
+      accountsToCreate = (form.accounts || []).filter(a => a.username && a.username.trim());
+    }
+
+    const res = await window.api.profiles.createWithAccounts({
+      token,
+      name: form.name.trim(),
       assignedUserId: form.assigned_user_id ? Number(form.assigned_user_id) : null,
-      niche: form.niche, brandVoice: form.brand_voice, notes: form.notes,
+      niche: form.niche ? form.niche.trim() : null,
+      brandVoice: form.brand_voice ? form.brand_voice.trim() : null,
+      notes: form.notes ? form.notes.trim() : null,
       avatarColor: form.avatar_color,
+      proxyId: form.proxy_id ? Number(form.proxy_id) : null,
       browserMode: form.browser_mode,
       teamId: activeTeamId,
+      accounts: accountsToCreate,
     });
+
     if (!res.ok) { setError(res.error); return; }
     const newId = res.id;
-    setForm(blank()); setShowAdd(false); await load();
+    setForm(blank());
+    setShowAdd(false);
+    await load();
+
+    const acctMsg = res.accountCount > 0
+      ? ` with ${res.accountCount} launch-ready account(s)`
+      : '';
     if (form.browser_mode === 'cloakmanager') {
-      toast(res.cmProfile?.ok ? 'ok' : 'err',
+      toast(
+        res.cmProfile?.ok ? 'ok' : 'err',
         res.cmProfile?.ok
-          ? `Model created — CloakManager profile "${res.cmProfile.profileName}" ready.`
-          : `Model created, but CloakManager profile failed: ${res.cmProfile?.error || 'unknown error'}`);
+          ? `Model created${acctMsg}! Browser profile ready.`
+          : `Model created${acctMsg}, but CloakManager profile failed: ${res.cmProfile?.error || 'unknown error'}`
+      );
     } else {
-      toast('ok', 'Model created.');
+      toast('ok', `Model created${acctMsg}!`);
     }
     setTimeout(() => {
       const el = document.querySelector(`*[data-profile-id="${newId}"]`);
@@ -314,21 +406,67 @@ export default function ProfilesPage({ navigate }) {
         </div>
       )}
 
-      {/* Add Model Drawer / Form */}
+      {/* Unified Fast Model & Accounts Onboarding Wizard */}
       {showAdd && canManage && (
-        <form onSubmit={addProfile} className="card" style={{ marginBottom: 20, border: '1px solid var(--accent)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{ margin: 0 }}>Create Model Profile</h3>
-            <span className="dim" style={{ fontSize: 12 }}>One profile holds all social & monetization accounts</span>
-          </div>
-          {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+        <form onSubmit={addProfile} className="card" style={{ marginBottom: 20, border: '1px solid var(--gold)', background: 'var(--bg-elev)', boxShadow: '0 4px 20px rgba(0,0,0,0.35)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <label>Model Name *</label>
-              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Luna" autoFocus />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>✨</span>
+                <h3 style={{ margin: 0, fontSize: 16, color: 'var(--gold-bright)' }}>Fast Model & Accounts Onboarding</h3>
+              </div>
+              <div className="dim" style={{ fontSize: 12, marginTop: 3 }}>
+                Configure a model and all its initial platform accounts in one step — ready to launch immediately.
+              </div>
+            </div>
+
+            {/* Mode Switcher Tabs */}
+            <div style={{ display: 'flex', background: 'var(--bg-2)', padding: 3, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setForm({ ...form, wizardTab: 'guided' })}
+                style={{
+                  fontSize: 12, padding: '4px 12px', borderRadius: 'var(--radius-sm)',
+                  background: form.wizardTab === 'guided' ? 'var(--gold)' : 'transparent',
+                  color: form.wizardTab === 'guided' ? '#111' : 'var(--text-2)',
+                  fontWeight: form.wizardTab === 'guided' ? 700 : 400,
+                }}
+              >
+                🪄 Guided Setup
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setForm({ ...form, wizardTab: 'bulk' })}
+                style={{
+                  fontSize: 12, padding: '4px 12px', borderRadius: 'var(--radius-sm)',
+                  background: form.wizardTab === 'bulk' ? 'var(--gold)' : 'transparent',
+                  color: form.wizardTab === 'bulk' ? '#111' : 'var(--text-2)',
+                  fontWeight: form.wizardTab === 'bulk' ? 700 : 400,
+                }}
+              >
+                📋 Bulk Paste
+              </button>
+            </div>
+          </div>
+
+          {error && <div className="error-banner" style={{ marginBottom: 14 }}>{error}</div>}
+
+          {/* Model Core Info */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Model Name *</label>
+              <input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Luna"
+                autoFocus
+                required
+              />
             </div>
             <div>
-              <label>Primary Manager</label>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Primary Manager</label>
               <select value={form.assigned_user_id} onChange={(e) => setForm({ ...form, assigned_user_id: e.target.value })}>
                 <option value="">— Unassigned —</option>
                 {users.map((u) => (
@@ -337,27 +475,42 @@ export default function ProfilesPage({ navigate }) {
               </select>
             </div>
             <div>
-              <label>Niche / Category</label>
-              <input value={form.niche} onChange={(e) => setForm({ ...form, niche: e.target.value })} placeholder="e.g. Cosplay, Fitness, Gamer" />
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Niche / Category</label>
+              <input
+                value={form.niche}
+                onChange={(e) => setForm({ ...form, niche: e.target.value })}
+                placeholder="e.g. Cosplay, Latina, Fitness"
+              />
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div>
-              <label>Browser Mode</label>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Model Dedicated Proxy</label>
+              <select value={form.proxy_id} onChange={(e) => setForm({ ...form, proxy_id: e.target.value })}>
+                <option value="">— Direct (No Proxy) —</option>
+                {proxies.map((px) => (
+                  <option key={px.id} value={px.id}>{px.label} · {px.kind} {px.host}:{px.port}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Browser Engine</label>
               <select value={form.browser_mode} onChange={(e) => setForm({ ...form, browser_mode: e.target.value })}>
                 <option value="cloakmanager">CloakManager Antidetect (Recommended)</option>
                 <option value="electron">Electron Standard</option>
               </select>
             </div>
             <div>
-              <label>Avatar Color</label>
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600 }}>Avatar Color</label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                 {COLORS.map(c => (
-                  <button key={c} type="button"
+                  <button
+                    key={c}
+                    type="button"
                     onClick={() => setForm({ ...form, avatar_color: c })}
                     style={{
-                      width: 26, height: 26, padding: 0, borderRadius: '50%',
+                      width: 24, height: 24, padding: 0, borderRadius: '50%',
                       background: c, borderWidth: 2, borderStyle: 'solid',
                       borderColor: form.avatar_color === c ? 'var(--text-0)' : 'transparent',
                       cursor: 'pointer',
@@ -368,14 +521,187 @@ export default function ProfilesPage({ navigate }) {
             </div>
           </div>
 
+          {/* TAB 1: Guided Accounts Section */}
+          {form.wizardTab === 'guided' && (
+            <div style={{
+              background: 'var(--bg-1)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 14,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-1)' }}>Designated Platform Accounts</span>
+                  <span className="dim" style={{ fontSize: 11, marginLeft: 8 }}>
+                    ({(form.accounts || []).filter(a => a.username?.trim()).length} configured)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="dim" style={{ fontSize: 11 }}>Quick Add:</span>
+                  {[
+                    { key: 'onlyfans', label: 'OnlyFans', icon: '🔞' },
+                    { key: 'fansly', label: 'Fansly', icon: '💙' },
+                    { key: 'fanvue', label: 'Fanvue', icon: '✨' },
+                    { key: 'reddit', label: 'Reddit', icon: '🔴' },
+                    { key: 'x', label: 'X', icon: '𝕏' },
+                    { key: 'instagram', label: 'IG', icon: '📸' },
+                    { key: 'tiktok', label: 'TikTok', icon: '🎵' },
+                  ].map(qp => (
+                    <button
+                      key={qp.key}
+                      type="button"
+                      className="ghost"
+                      onClick={() => addAccountRow(qp.key)}
+                      style={{ fontSize: 11, padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 3 }}
+                      title={`Add ${qp.label} account`}
+                    >
+                      <span>{qp.icon}</span>
+                      <span>+{qp.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Account Rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(form.accounts || []).map((acct, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'grid', gridTemplateColumns: '160px 1fr 1fr 32px', gap: 8,
+                      alignItems: 'center', background: 'var(--bg-elev)', padding: '6px 10px',
+                      borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                    }}
+                  >
+                    <select
+                      value={acct.platform}
+                      onChange={(e) => updateAccountRow(idx, 'platform', e.target.value)}
+                      style={{ fontSize: 12, padding: '4px 6px' }}
+                    >
+                      {availablePlatforms.length > 0 ? (
+                        availablePlatforms.map(p => (
+                          <option key={p.key} value={p.key}>{p.icon ? `${p.icon} ` : ''}{p.label}</option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="onlyfans">🔞 OnlyFans</option>
+                          <option value="fansly">💙 Fansly</option>
+                          <option value="fanvue">✨ Fanvue</option>
+                          <option value="reddit">🔴 Reddit</option>
+                          <option value="x">𝕏 X (Twitter)</option>
+                          <option value="instagram">📸 Instagram</option>
+                          <option value="tiktok">🎵 TikTok</option>
+                        </>
+                      )}
+                    </select>
+
+                    <input
+                      value={acct.username}
+                      onChange={(e) => updateAccountRow(idx, 'username', e.target.value)}
+                      placeholder="Username (e.g. @model_luna)"
+                      style={{ fontSize: 12, padding: '4px 8px' }}
+                    />
+
+                    <input
+                      type="password"
+                      value={acct.password}
+                      onChange={(e) => updateAccountRow(idx, 'password', e.target.value)}
+                      placeholder="Password (optional, encrypted)"
+                      style={{ fontSize: 12, padding: '4px 8px' }}
+                    />
+
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => removeAccountRow(idx)}
+                      style={{ color: 'var(--danger-fg)', padding: 0, height: 26, width: 26, display: 'grid', placeItems: 'center' }}
+                      title="Remove account"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => addAccountRow('onlyfans')}
+                  style={{ fontSize: 11, alignSelf: 'flex-start', marginTop: 4, padding: '4px 10px' }}
+                >
+                  + Add Another Account Row
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Bulk Paste Section */}
+          {form.wizardTab === 'bulk' && (
+            <div style={{
+              background: 'var(--bg-1)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 14,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-1)' }}>Paste Accounts (One per line)</span>
+                <span className="dim mono" style={{ fontSize: 11 }}>Format: platform:username[:password]</span>
+              </div>
+              <textarea
+                rows={5}
+                value={form.bulkText}
+                onChange={(e) => setForm({ ...form, bulkText: e.target.value })}
+                placeholder={`onlyfans:luna_vip:SecretPass123\nfansly:luna_official\nx:luna_real:MyPassword\ninstagram:luna_model\nreddit:u/luna_cosplay`}
+                style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 8 }}
+              />
+
+              {/* Live Preview */}
+              {(() => {
+                const parsed = parseBulkAccounts(form.bulkText);
+                return (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', marginBottom: 6 }}>
+                      Parsed Preview: {parsed.length} account{parsed.length === 1 ? '' : 's'} detected
+                    </div>
+                    {parsed.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {parsed.map((p, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                              background: 'var(--bg-2)', border: '1px solid var(--border)',
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                            }}
+                          >
+                            <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{p.platform}:</span>
+                            <span>@{p.username}</span>
+                            {p.password && <span style={{ opacity: 0.6 }}>• encrypted</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Brand Voice / Notes */}
           <div style={{ marginBottom: 14 }}>
-            <label>Brand Voice & Instructions (Optional)</label>
-            <textarea rows={2} value={form.brand_voice} onChange={(e) => setForm({ ...form, brand_voice: e.target.value })} placeholder="Tone, dos and don'ts, personality guidelines for chatters…" />
+            <label style={{ fontSize: 11, fontWeight: 600 }}>Brand Voice & Guidelines (Optional)</label>
+            <textarea
+              rows={2}
+              value={form.brand_voice}
+              onChange={(e) => setForm({ ...form, brand_voice: e.target.value })}
+              placeholder="Chatter guidelines, tone of voice, dos and don'ts…"
+              style={{ fontSize: 12 }}
+            />
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" className="primary">Create Model</button>
-            <button type="button" className="ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+          {/* Footer Actions */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button type="submit" className="primary" style={{ padding: '8px 18px', fontWeight: 600 }}>
+              🚀 Create Launch-Ready Model
+            </button>
+            <button type="button" className="ghost" onClick={() => setShowAdd(false)}>
+              Cancel
+            </button>
           </div>
         </form>
       )}

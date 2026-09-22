@@ -5,17 +5,22 @@ import logoUrl from '../assets/logo.png';
 import ActivityDrawer from './ActivityDrawer.jsx';
 
 export const NAV = [
-  { key: 'dashboard',     label: 'Dashboard',     icon: '⬢', group: 'Overview',  perm: 'page.dashboard' },
-  { key: 'profiles',      label: 'Models',        icon: '◇', group: 'Overview',  perm: 'page.profiles' },
-  { key: 'analytics',     label: 'Analytics',     icon: '◧', group: 'Overview',  perm: 'page.analytics' },
-  { key: 'inbox',         label: 'Inbox',         icon: '✉', group: 'Workspace', perm: 'page.reddit-api' },
-  { key: 'automation',    label: 'Automation',    icon: '⟳', group: 'Workspace', perm: 'page.autopilot' },
-  { key: 'scheduler',     label: 'Scheduler',     icon: '◷', group: 'Workspace', perm: 'page.scheduler' },
-  { key: 'intel',         label: 'Intelligence',  icon: '◎', group: 'Workspace', perm: 'page.intel' },
-  { key: 'scripts',       label: 'Scripts',       icon: '◫', group: 'Workspace', perm: 'page.scripts' },
-  { key: 'team',          label: 'Team',          icon: '⚑', group: 'Team',      perm: 'page.team' },
-  { key: 'settings',      label: 'Configuration', icon: '⚙', group: 'Configure', perm: 'page.settings' },
-  { key: 'platforms',     label: 'Platforms',     icon: '🌐', group: 'Configure', perm: 'page.settings' },
+  // Operations zone (daily creator & model work)
+  { key: 'dashboard',     label: 'Dashboard',     icon: '⬢', group: 'Operations',     perm: 'page.dashboard' },
+  { key: 'profiles',      label: 'Models',        icon: '◇', group: 'Operations',     perm: 'page.profiles' },
+  { key: 'inbox',         label: 'Inbox & Chat',  icon: '✉', group: 'Operations',     perm: 'page.reddit-api' },
+  { key: 'analytics',     label: 'Analytics',     icon: '◧', group: 'Operations',     perm: 'page.analytics' },
+
+  // Traffic & Automation zone (growth, scheduling, scripts)
+  { key: 'scheduler',     label: 'Scheduler',     icon: '◷', group: 'Traffic & Auto', perm: 'page.scheduler' },
+  { key: 'automation',    label: 'Automation',    icon: '⟳', group: 'Traffic & Auto', perm: 'page.autopilot' },
+  { key: 'scripts',       label: 'Scripts',       icon: '◫', group: 'Traffic & Auto', perm: 'page.scripts' },
+  { key: 'intel',         label: 'Intelligence',  icon: '◎', group: 'Traffic & Auto', perm: 'page.intel' },
+
+  // Agency System zone (team, platform presets, configurations)
+  { key: 'team',          label: 'Team & Access', icon: '⚑', group: 'Agency System',  perm: 'page.team' },
+  { key: 'platforms',     label: 'Platforms',     icon: '🌐', group: 'Agency System',  perm: 'page.settings' },
+  { key: 'settings',      label: 'Configuration', icon: '⚙', group: 'Agency System',  perm: 'page.settings' },
 ];
 
 export default function Shell({ route, navigate, children, goBack, canGoBack }) {
@@ -28,6 +33,130 @@ export default function Shell({ route, navigate, children, goBack, canGoBack }) 
   const [pendingInvites, setPendingInvites] = useState(0);
   const [creating, setCreating] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
+
+  // Command Palette / Quick-Jump state
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState('');
+  const [paletteIndex, setPaletteIndex] = useState(0);
+  const [paletteModels, setPaletteModels] = useState([]);
+  const [palettePlatforms, setPalettePlatforms] = useState([]);
+
+  useEffect(() => {
+    if (!paletteOpen) return;
+    setPaletteQuery('');
+    setPaletteIndex(0);
+
+    window.api.profiles.list({ teamId: activeTeamId })
+      .then(res => res && res.ok && setPaletteModels(res.profiles || []))
+      .catch(() => {});
+
+    window.api.platforms.list()
+      .then(res => res && res.ok && setPalettePlatforms(res.platforms || []))
+      .catch(() => {});
+  }, [paletteOpen, activeTeamId]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen(prev => !prev);
+      }
+      if (e.key === 'Escape' && paletteOpen) {
+        setPaletteOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [paletteOpen]);
+
+  const paletteItems = React.useMemo(() => {
+    const q = paletteQuery.toLowerCase().trim();
+    const items = [];
+
+    // 1. Actions
+    const actions = [
+      { id: 'act-new-model', type: 'action', title: '+ Fast New Model & Accounts', subtitle: 'Open all-in-one onboarding wizard', icon: '✨', onSelect: () => navigate('profiles', { openAdd: true }) },
+      { id: 'act-new-plat', type: 'action', title: '+ Add Custom Platform', subtitle: 'Create new platform or presets', icon: '⚡', onSelect: () => navigate('platforms', { openAdd: true }) },
+      { id: 'act-team', type: 'action', title: 'Manage Team & Access', subtitle: 'Invite workers and assign roles', icon: '⚑', onSelect: () => navigate('team') },
+      { id: 'act-proxies', type: 'action', title: 'Manage Proxies', subtitle: 'Configure residential/mobile proxies', icon: '🔌', onSelect: () => navigate('settings') },
+    ];
+    for (const a of actions) {
+      if (!q || a.title.toLowerCase().includes(q) || a.subtitle.toLowerCase().includes(q)) {
+        items.push(a);
+      }
+    }
+
+    // 2. Pages
+    const pages = [
+      { id: 'page-dash', type: 'page', title: 'Dashboard', subtitle: 'Management Hub, revenue, quick launchers', icon: '⬢', onSelect: () => navigate('dashboard') },
+      { id: 'page-models', type: 'page', title: 'Models Directory', subtitle: 'High-density roster, browser launchers', icon: '◇', onSelect: () => navigate('profiles') },
+      { id: 'page-inbox', type: 'page', title: 'Inbox & Chatting', subtitle: 'OnlyFans & platform message center', icon: '✉', onSelect: () => navigate('inbox') },
+      { id: 'page-analytics', type: 'page', title: 'Analytics & Revenue', subtitle: 'Platform earnings, commissions, metrics', icon: '◧', onSelect: () => navigate('analytics') },
+      { id: 'page-sched', type: 'page', title: 'Scheduler Pro', subtitle: 'Calendar, multi-account queue', icon: '◷', onSelect: () => navigate('scheduler') },
+      { id: 'page-auto', type: 'page', title: 'Automation & Autopilot', subtitle: 'Rules, scheduled tasks, flows', icon: '⟳', onSelect: () => navigate('automation') },
+      { id: 'page-scripts', type: 'page', title: 'Scripts & Macros', subtitle: 'CDP browser automation scripts', icon: '◫', onSelect: () => navigate('scripts') },
+      { id: 'page-intel', type: 'page', title: 'Intelligence & Research', subtitle: 'Trends, subreddit scoring', icon: '◎', onSelect: () => navigate('intel') },
+      { id: 'page-team', type: 'page', title: 'Team & Roles', subtitle: 'Member permissions, chatter assignments', icon: '⚑', onSelect: () => navigate('team') },
+      { id: 'page-plats', type: 'page', title: 'Platforms & Presets', subtitle: '1-click presets, platform link manager', icon: '🌐', onSelect: () => navigate('platforms') },
+      { id: 'page-sett', type: 'page', title: 'System Configuration', subtitle: 'Proxies, cloud sync, security', icon: '⚙', onSelect: () => navigate('settings') },
+    ];
+    for (const p of pages) {
+      if (!q || p.title.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q)) {
+        items.push(p);
+      }
+    }
+
+    // 3. Models
+    for (const m of paletteModels) {
+      const match = !q || m.name?.toLowerCase().includes(q) || (m.niche && m.niche.toLowerCase().includes(q));
+      if (match) {
+        items.push({
+          id: `model-${m.id}`,
+          type: 'model',
+          title: m.name,
+          subtitle: `${m.niche || 'General'} · ${m.account_count || 0} account(s)`,
+          icon: '👤',
+          color: m.avatar_color,
+          onSelect: () => navigate('model', { modelId: m.id }),
+        });
+      }
+    }
+
+    // 4. Platforms
+    for (const pl of palettePlatforms) {
+      const match = !q || pl.label?.toLowerCase().includes(q) || pl.key?.toLowerCase().includes(q);
+      if (match) {
+        items.push({
+          id: `plat-${pl.id}`,
+          type: 'platform',
+          title: pl.label,
+          subtitle: `${pl.key} · ${pl.account_count || 0} account(s)`,
+          icon: pl.icon || '🌐',
+          color: pl.color,
+          onSelect: () => navigate('platforms'),
+        });
+      }
+    }
+
+    return items;
+  }, [paletteQuery, paletteModels, palettePlatforms, navigate]);
+
+  const handlePaletteKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPaletteIndex(i => (i + 1) % Math.max(1, paletteItems.length));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPaletteIndex(i => (i - 1 + paletteItems.length) % Math.max(1, paletteItems.length));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const sel = paletteItems[paletteIndex];
+      if (sel) {
+        setPaletteOpen(false);
+        sel.onSelect();
+      }
+    }
+  };
 
   useEffect(() => {
     if (window.api?.app?.version) {
@@ -244,12 +373,137 @@ export default function Shell({ route, navigate, children, goBack, canGoBack }) 
               {currentTeam.name}
             </span>
           )}
-          <div style={{ marginLeft: currentTeam ? 0 : 'auto' }}>
+
+          {/* Quick-Jump Spotlight button */}
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setPaletteOpen(true)}
+            style={{
+              marginLeft: 14, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6,
+              padding: '3px 10px', background: 'var(--bg-2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', color: 'var(--text-2)', cursor: 'pointer',
+            }}
+            title="Quick-Jump Spotlight (Ctrl+K)"
+          >
+            <span>🔍</span>
+            <span>Jump to...</span>
+            <kbd style={{ fontSize: 9, padding: '1px 4px', background: 'var(--bg-0)', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--gold)' }}>Ctrl K</kbd>
+          </button>
+
+          <div style={{ marginLeft: 'auto' }}>
             <ActivityDrawer navigate={navigate} />
           </div>
         </div>
         <section style={styles.content}>{children}</section>
       </main>
+
+      {/* Global Quick-Jump Spotlight / Command Palette (Ctrl+K) */}
+      {paletteOpen && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            paddingTop: '10vh', zIndex: 10000, backdropFilter: 'blur(3px)',
+          }}
+          onClick={() => setPaletteOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 580, maxHeight: '75vh', display: 'flex', flexDirection: 'column',
+              background: 'var(--bg-elev)', border: '1px solid var(--gold)',
+              borderRadius: 'var(--radius-lg)', boxShadow: '0 12px 48px rgba(0,0,0,0.7)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Input Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--bg-1)' }}>
+              <span style={{ fontSize: 16, opacity: 0.6 }}>🔍</span>
+              <input
+                value={paletteQuery}
+                onChange={(e) => { setPaletteQuery(e.target.value); setPaletteIndex(0); }}
+                onKeyDown={handlePaletteKeyDown}
+                placeholder="Jump to model, platform, action, or page… (type or use ↑↓)"
+                autoFocus
+                style={{
+                  flex: 1, background: 'transparent', border: 'none',
+                  outline: 'none', fontSize: 14, color: 'var(--text-0)',
+                }}
+              />
+              <kbd style={{ fontSize: 10, padding: '2px 6px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 4 }}>ESC</kbd>
+            </div>
+
+            {/* Results List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 6px', maxHeight: 420 }}>
+              {paletteItems.length === 0 ? (
+                <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+                  No matching models, platforms, or pages found.
+                </div>
+              ) : (
+                paletteItems.map((item, idx) => {
+                  const isSelected = idx === paletteIndex;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setPaletteOpen(false);
+                        item.onSelect();
+                      }}
+                      onMouseEnter={() => setPaletteIndex(idx)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '9px 12px', borderRadius: 'var(--radius)',
+                        cursor: 'pointer',
+                        background: isSelected ? 'rgba(212,166,74,0.15)' : 'transparent',
+                        borderLeft: isSelected ? '3px solid var(--gold)' : '3px solid transparent',
+                        transition: 'background 0.1s ease',
+                      }}
+                    >
+                      <div style={{
+                        width: 28, height: 28, borderRadius: 'var(--radius-sm)',
+                        background: item.color || 'var(--bg-2)', border: '1px solid var(--border)',
+                        display: 'grid', placeItems: 'center', fontSize: 13, flexShrink: 0,
+                      }}>
+                        {item.icon}
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: isSelected ? 600 : 500, color: isSelected ? 'var(--gold-bright)' : 'var(--text-1)' }}>
+                          {item.title}
+                        </div>
+                        {item.subtitle && (
+                          <div style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.subtitle}
+                          </div>
+                        )}
+                      </div>
+
+                      <span style={{
+                        fontSize: 9, padding: '1px 6px', borderRadius: 'var(--radius-pill)',
+                        textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700,
+                        background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text-3)',
+                      }}>
+                        {item.type}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer hints */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 16px', background: 'var(--bg-1)', borderTop: '1px solid var(--border)',
+              fontSize: 11, color: 'var(--text-3)',
+            }}>
+              <span>Navigation: <kbd style={{ padding: '1px 4px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 3 }}>↑</kbd> <kbd style={{ padding: '1px 4px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 3 }}>↓</kbd> to select</span>
+              <span>Select: <kbd style={{ padding: '1px 4px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 3 }}>↵ Enter</kbd></span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

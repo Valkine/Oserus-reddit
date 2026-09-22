@@ -5,7 +5,11 @@ const { hasPermission } = require('../permissions');
 function register(ipcMain) {
   ipcMain.handle('platforms:list', () => {
     try {
-      const rows = getDb().prepare('SELECT * FROM platforms ORDER BY sort_order, id').all();
+      const rows = getDb().prepare(`
+        SELECT p.*, (SELECT COUNT(*) FROM reddit_accounts WHERE platform = p.key) AS account_count
+        FROM platforms p
+        ORDER BY p.sort_order, p.id
+      `).all();
       return { ok: true, platforms: rows };
     } catch (err) {
       return { ok: false, error: err.message };
