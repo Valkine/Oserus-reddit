@@ -50,7 +50,6 @@ async function execute(nativeConnection, context) {
     // in-script "already done" check is needed.
     const sites = [
       { name: 'Google',     url: 'https://www.google.com' },
-      { name: 'YouTube',    url: 'https://www.youtube.com' },
       { name: 'Amazon',     url: 'https://www.amazon.com' },
       { name: 'Wikipedia',  url: 'https://www.wikipedia.org' },
       { name: 'GitHub',     url: 'https://www.github.com' },

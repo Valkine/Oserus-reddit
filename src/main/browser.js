@@ -1,4 +1,4 @@
-// Oserus Browser — AdsPower-style profile browser.
+// Oserus Browser — Multi-account isolated profile browser.
 //
 // One BrowserWindow per MODEL (openForModel) with one tab per linked
 // account; openForAccount opens a single-account window for deep links.
@@ -370,7 +370,7 @@ async function openForAccount(accountId) {
   const prep = await prepareSessionForAccount(accountId);
   if (!prep.ok) return prep;
 
-  // AdsPower semantics: one window per profile. Focus the existing
+  // Profile isolation semantics: one window per profile. Focus the existing
   // window instead of opening a duplicate.
   const existing = accountWindows.get(accountId);
   if (existing && !existing.isDestroyed()) {

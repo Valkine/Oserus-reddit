@@ -3,8 +3,7 @@
 // but persisted to the row on first generation so future code changes
 // don't shift existing identities.
 //
-// Coverage matches what antidetect browsers (AdsPower, Multilogin,
-// Dolphin Anty) expose: UA + Sec-CH-UA platform, languages, timezone,
+// Coverage matches what antidetect browser engines expose: UA + Sec-CH-UA platform, languages, timezone,
 // screen / window metrics, hardwareConcurrency / deviceMemory, WebGL
 // vendor + renderer, canvas / audio noise seeds. Each session also
 // gets a WebRTC handling switch applied at app launch.

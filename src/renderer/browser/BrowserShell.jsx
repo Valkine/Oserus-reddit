@@ -21,7 +21,7 @@ const SIDEBAR_WIDTH     = 340;
 // reservation needed. Small pad keeps active tab from kissing the edge.
 const NATIVE_BUTTONS_W  = 144;
 
-// Quick-launch bookmarks — same set as AdsPower's default bar.
+// Quick-launch bookmarks bar.
 // Favicons fetched from Google's S2 service so we don't ship any assets.
 const BOOKMARKS = [
   { label: 'Google',    url: 'https://www.google.com',    domain: 'google.com'    },

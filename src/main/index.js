@@ -402,9 +402,21 @@ function registerOserusBrowserHandlers() {
 
     const db = getDb();
     const model = db.prepare(
-      'SELECT id, browser_mode, cloak_profile_name FROM model_profiles WHERE id = ?'
+      'SELECT id, name, browser_mode, cloak_profile_name FROM model_profiles WHERE id = ?'
     ).get(profileId);
     if (!model) return { ok: false, error: 'Model not found' };
+
+    // Strict guard: browser cannot launch without designated accounts
+    const accts = db.prepare(
+      `SELECT id, username, platform FROM reddit_accounts
+        WHERE profile_id = ? AND status != 'banned'`
+    ).all(profileId);
+    if (!accts || accts.length === 0) {
+      return {
+        ok: false,
+        error: 'Cannot open browser: No designated accounts are linked to this model. Link an account first before launching.',
+      };
+    }
 
     if (model.browser_mode === 'cloakmanager') {
       if (!model.cloak_profile_name) {

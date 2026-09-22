@@ -1,7 +1,7 @@
 # OSERUS MANAGEMENT — MASTER ARCHITECTURE & DESIGN SPECIFICATION (DESIGN.md)
 *The definitive product, architectural, operational, and aesthetic blueprint for Oserus Management.*  
 *Target Audience: AI Engineering Agents, System Architects, Full-Stack Developers, and Human Operators.*  
-*Current System Version: v0.86.19+ · Last Updated: September 2026*
+*Current System Version: v0.86.20+ · Last Updated: September 2026*
 
 ---
 
@@ -15,7 +15,7 @@ Running a 7-to-8 figure creator agency requires coordinating two distinct operat
 2. **Monetization & CRM (Bottom of Funnel)**: Messaging paying fans 24/7 on OnlyFans, Fansly, and Fanvue to sell pay-per-view (PPV) content, collect tips, and maintain subscriber retention. This requires high-speed multi-model chatting, fan spend tracking, and structured shifts for global chatters.
 
 Prior to Oserus, agency owners were forced to stitch together 4–6 separate software tools:
-- **AdsPower / Multilogin**: For browser isolation and proxy management ($100–$500/mo).
+- **Antidetect / Multilogin Tools**: For browser isolation and proxy management ($100–$500/mo).
 - **Infloww / Supercreator**: For chatter CRM and OnlyFans messaging ($200–$1,000/mo).
 - **Google Sheets / Notion**: For tracking chatter shift schedules across US and Philippine timezones.
 - **Custom Python / Puppeteer scripts**: For Reddit and Twitter warm-ups, upvotes, and posting.
@@ -36,14 +36,14 @@ Prior to Oserus, agency owners were forced to stitch together 4–6 separate sof
 Every architectural and UI decision in this specification originates from direct operator feedback. Any AI modifying this codebase must understand the pain behind each rule:
 
 1. **"The Model page is sloppy, cluttered, and overwhelming."**
-   - *The Old Mistake*: Previous builds dumped administrative controls directly onto every model card: a Primary Manager dropdown, an "Add Member" dropdown + role selector + submit button, a list of team members with individual role dropdowns, a main email text input, and a proxy dropdown. Each card was 600px tall and turned the page into an unusable wall of inputs.
-   - *The Fix*: **Strict Card Diet**. All configuration was moved into a clean, dedicated `⚙ Edit Model` modal. The model card face was trimmed down to ~200px: avatar, model name, niche pill, platform account badges, proxy tag, team avatar pills, and a 1-click hero launch button.
+   - *The Old Mistake*: Previous builds dumped administrative controls directly onto every model card: a Primary Manager dropdown, an "Add Member" dropdown + role selector + submit button, a list of team members with individual role dropdowns, a main email text input, and a proxy dropdown.
+   - *The Fix*: **Single High-Density Table Format**. Clean, fast directory table with row actions (`[ ▶ Open Browser ]`, `[ Manage → ]`, `[ ✏ Edit ]`, `[ 🗑 Delete ]`). Clutter removed from the page face into dedicated edit flows.
 2. **"Why are there 5 giant dashed empty boxes stacked on top of each other?"**
    - *The Old Mistake*: On `ModelDetail.jsx`, if a model didn't have RedGIFs, X, Instagram, TikTok, or OnlyFans connected, the UI rendered five giant empty dashed dropboxes requiring 800px of scrolling.
    - *The Fix*: Replaced by a unified **Accounts Table** with **Platform Filter Pills** (`[ All Accounts (4) ]` `[ Reddit (2) ]` `[ X (1) ]` `[ OnlyFans (1) ]` `[ + Add Account ]`) and a single clean empty state.
 3. **"Remove the ability to only open one account. The model profile is the browser."**
-   - *The Old Mistake*: Having `[ ▶ Open Browser ]` buttons on individual Reddit, X, and Instagram account rows broke the antidetect paradigm. In AdsPower, you do not launch single tabs; you launch the *isolated browser profile* containing that model's ecosystem.
-   - *The Fix*: Removed individual account launch buttons. The Model Profile is the single browser execution unit with one prominent master launch button (`[ ▶ Open Browser ]` / `[ ● RUNNING ]`).
+   - *The Old Mistake*: Having `[ ▶ Open Browser ]` buttons on individual Reddit, X, and Instagram account rows broke the antidetect paradigm. In an isolated multi-account architecture, you do not launch single tabs; you launch the *isolated browser profile* containing that model's ecosystem.
+   - *The Fix*: Removed individual account launch buttons. The Model Profile is the single browser execution unit with one prominent master launch button (`[ ▶ Open Browser ]` / `[ ● RUNNING ]`). Strict guard: cannot launch if 0 designated accounts are linked.
 4. **"Give teams its own page. Team does not belong in the Dashboard."**
    - *The Old Mistake*: The executive dashboard was cluttered with user roster tables, presence heartbeat rows, and role assignments.
    - *The Fix*: Cleaned up the Dashboard to focus exclusively on **Executive Health & Gross Revenue**. Created a dedicated **Team Hub (`Team.jsx`)** featuring 4 tabs: *Roster & Assignments*, *Shift Schedule*, *Custom Roles*, and *License & Monetization*.
@@ -138,7 +138,7 @@ The workstation is divided into two distinct operational pillars:
 │                                   OSERUS MANAGEMENT                                    │
 ├───────────────────────────────────────────┬────────────────────────────────────────────┤
 │       PILLAR 1: TRAFFIC & ANTIDETECT      │       PILLAR 2: INBOX & MONETIZATION       │
-│      (The AdsPower Browser Engine)        │      (The Infloww Account Manager CRM)     │
+│        (Isolated Browser Engine)          │      (The Infloww Account Manager CRM)     │
 ├───────────────────────────────────────────┼────────────────────────────────────────────┤
 │ • Social Platforms: Reddit, X, IG, TikTok │ • Creator Platforms: OnlyFans, Fansly,     │
 │ • Model Profile = Browser Sandbox Unit    │   Fanvue                                   │
@@ -152,7 +152,7 @@ The workstation is divided into two distinct operational pillars:
 
 ---
 
-## 4. Pillar 1: Traffic & Antidetect Browser (The AdsPower Paradigm)
+## 4. Pillar 1: Traffic & Antidetect Browser (Isolated Sandbox Architecture)
 
 ### 4.1 The Core Browser Principle
 In Oserus, the **Model Profile** (`model_profiles`) is the browser sandbox. 
@@ -164,22 +164,22 @@ In Oserus, the **Model Profile** (`model_profiles`) is the browser sandbox.
   3. Her saved cookies, local storage, and active sessions.
   4. Automatically opens her pinned tabs (Reddit, X, Instagram, TikTok).
   5. Decrypts her saved credentials from the local OS vault and auto-fills login forms.
+- **Strict Guard**: Browser launch requires at least one designated account linked to the model. If 0 accounts exist, launching is prevented.
 
-### 4.2 Models Overview Interface (`src/renderer/pages/Profiles.jsx`)
-The Models page provides two viewing modes toggled via a top toolbar control:
-1. **⊞ Grid View**:
-   - Clean, compact model cards (~200px tall).
-   - Card displays: Colored avatar circle, Model Name, Niche tag, Accounts count pill, Assigned Proxy badge, Assigned Team avatar chips, Running state indicator, and the primary `[ ▶ Open Browser ]` button.
-   - Action controls: `Manage →` (navigates to `ModelDetail.jsx`) and `⚙` (opens the `Edit Model Modal`).
-2. **☰ AdsPower Table View**:
-   - High-density spreadsheet table for power users managing 20+ models.
-   - Columns:
-     - **Model**: Avatar + Name + Niche.
-     - **Accounts**: Platform icon badges showing connected accounts (Reddit, X, IG, etc.).
-     - **Proxy**: IP:Port and country flag badge.
-     - **Assigned Team**: Stacked avatar chips of assigned chatters/managers.
-     - **Status**: `Ready` or `● Running`.
-     - **Quick Actions**: `[ ▶ Open Browser ]`, `Manage`, `⚙ Edit`.
+### 4.2 Models Directory Interface (`src/renderer/pages/Profiles.jsx`)
+The Models page renders a single, unified **High-Density Table View**:
+- High-density spreadsheet table for agency teams managing models efficiently.
+- Columns:
+  - **Model**: Avatar + Name + Email + Niche. Click opens model dashboard.
+  - **Accounts**: Platform icon badges showing connected accounts (Reddit, X, IG, etc.) and total count.
+  - **Proxy**: IP:Port and label with fallback to direct connection.
+  - **Assigned Team**: Manager badge and assigned chatter badges.
+  - **Status**: Live running status indicator (`● RUNNING` / `Stopped`).
+  - **Actions**:
+    - `[ ▶ Open Browser ]` (or `[ ● Running ]`): Disabled with tooltip if 0 designated accounts exist.
+    - `[ Manage → ]`: Navigates directly to `ModelDetail.jsx`.
+    - `[ ✏ Edit ]`: Opens comprehensive Model Settings & Team Assignments modal for admins.
+    - `[ 🗑 Delete ]`: Permanently deletes the model and linked accounts after user confirmation.
 
 ### 4.3 Clean Model Detail Interface (`src/renderer/pages/ModelDetail.jsx`)
 - **Hero Control Header**: Displays Model name, niche, proxy badge, and the Master Browser Launch Button with real-time launch status feedback.
@@ -377,14 +377,17 @@ Agency owners typically operate in US Eastern Time (`America/New_York`), Central
 
 ---
 
-## 10. Model System & UI Cleanliness (The AdsPower Model)
+## 10. Model System & UI Cleanliness (High-Density Workstation Table)
 
-### 10.1 Models Overview Page (`src/renderer/pages/Profiles.jsx`)
-- **View Modes**:
-  - `⊞ Grid View`: Clean, compact cards (~200px tall). Shows colored avatar circle, Model Name, Niche pill, CloakManager/Electron pill, Running indicator, Accounts count, Proxy badge, Assigned team avatars, and master `[ ▶ Open Browser ]` button.
-  - `☰ AdsPower Table View`: High-density spreadsheet table with columns: Model, Niche, Accounts, Model Proxy, Assigned Team, Status, and Actions (`[ ▶ Open Browser ]`, `Manage →`, `⚙ Edit`).
-- **Dedicated Settings Modal**:
-  - Clicking `⚙` opens a comprehensive modal to edit name, niche, proxy, main email, brand voice, and team assignments.
+### 10.1 Models Directory Page (`src/renderer/pages/Profiles.jsx`)
+- **Sole Unified View**:
+  - Single high-density directory table format. (No view toggles, zero clutter, instant rendering).
+  - Columns: Model, Niche, Accounts, Model Proxy, Assigned Team, Status, and Actions (`[ ▶ Open Browser ]`, `Manage →`, `✏ Edit`, `🗑 Delete`).
+  - **Launch Safeguard**: Browser launch requires at least one designated account. If 0 accounts are linked, launch is disabled with tooltip guidance to prevent unconfigured or stray default sessions.
+- **Dedicated Admin Edit Modal**:
+  - Clicking `✏ Edit` opens a comprehensive modal to edit name, niche, proxy, main email, brand voice, and team assignments.
+- **Direct Row Delete Action**:
+  - Red `🗑 Delete` button directly in each table row prompts permanent confirmation and deletes the model and its assignments without requiring deep navigation.
 
 ### 10.2 Model Detail Page (`src/renderer/pages/ModelDetail.jsx`)
 - **Unified Accounts Table**:
@@ -550,7 +553,7 @@ Oserus-reddit/
 │       │   └── global.css        # Master design tokens (--font-display: Syne, --font-body: Plus Jakarta Sans, --font-mono: JetBrains Mono)
 │       └── pages/
 │           ├── Dashboard.jsx     # Executive revenue meter, Infloww scale bar, active browsers, system health
-│           ├── Profiles.jsx      # AdsPower-style models overview (Grid & Table views, Edit Modal)
+│           ├── Profiles.jsx      # High-density models directory table (Edit Modal, Row Delete)
 │           ├── ModelDetail.jsx   # Unified tabbed accounts table, hero launch control
 │           ├── Team.jsx          # Dedicated 4-tab Team Hub (Roster, Shifts, Custom Roles, License Scale)
 │           ├── Settings.jsx      # Creator platform connections, proxies, AI API keys

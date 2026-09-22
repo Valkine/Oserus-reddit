@@ -66,6 +66,11 @@ export default function DashboardPage({ navigate }) {
   useEffect(() => { refresh(); }, [refresh]);
 
   async function handleLaunchModel(profileId) {
+    const targetProfile = profiles.find(p => p.id === profileId);
+    if (!targetProfile || !targetProfile.account_count || targetProfile.account_count === 0) {
+      toast('err', 'Cannot open browser: No designated accounts are linked to this model. Link an account first.');
+      return;
+    }
     setLaunchingId(`model-${profileId}`);
     try {
       const res = await launchModelBrowser({ token, profileId: Number(profileId) });
@@ -290,7 +295,7 @@ export default function DashboardPage({ navigate }) {
             <div>
               <h3 style={{ margin: 0 }}>Model Browser Workstations</h3>
               <div className="dim" style={{ fontSize: 12, marginTop: 2 }}>
-                AdsPower-style isolated antidetect profiles. 1-click launch brings up persistent tabs & sessions.
+                Isolated antidetect profiles. 1-click launch brings up persistent tabs & sessions.
               </div>
             </div>
             <button className="ghost" onClick={() => navigate('profiles')} style={{ fontSize: 12 }}>

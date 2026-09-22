@@ -35,7 +35,6 @@ export default function ProfilesPage({ navigate }) {
   const [loadingSkel, setLoadingSkel] = useState(true);
   const [launchingId, setLaunchingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -60,6 +59,11 @@ export default function ProfilesPage({ navigate }) {
   }
 
   async function handleLaunchModel(profileId) {
+    const targetProfile = profiles.find(p => p.id === profileId);
+    if (!targetProfile || !targetProfile.accounts || targetProfile.accounts.length === 0) {
+      toast('err', 'Cannot open browser: No designated accounts are linked to this model. Click Manage to link an account first.');
+      return;
+    }
     setLaunchingId(`model-${profileId}`);
     try {
       const res = await launchModelBrowser({ token, profileId: Number(profileId) });
@@ -144,15 +148,15 @@ export default function ProfilesPage({ navigate }) {
     }, 150);
   }
 
-  async function del(id) {
-    const ok = await confirm('Delete this model profile? All its linked platform accounts will be removed too.', { confirmLabel: 'Delete', variant: 'danger' });
+  async function del(id, name) {
+    const ok = await confirm(`Delete model profile "${name || 'this model'}"? All its linked platform accounts and assignments will be permanently removed.`, { confirmLabel: 'Delete', variant: 'danger' });
     if (!ok) return;
     const res = await window.api.profiles.delete({ token, profileId: id, teamId: activeTeamId });
     if (!res.ok) {
       toast('err', `Failed to delete profile: ${res.error || 'Unknown error'}`);
       return;
     }
-    toast('ok', 'Model deleted.');
+    toast('ok', `Model "${name || ''}" deleted.`);
     if (editingProfile?.id === id) setEditingProfile(null);
     load();
   }
@@ -257,7 +261,7 @@ export default function ProfilesPage({ navigate }) {
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <PageHeader eyebrow="Organization" title="Model Profiles" subtitle="AdsPower-style isolated browser profiles. Each model operates as a unified browser instance.">
+      <PageHeader eyebrow="Organization" title="Model Profiles" subtitle="Isolated antidetect browser profiles. Each model operates as a unified browser instance.">
         {canManage && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="ghost" onClick={importProfile} title="Import model profile bundle">Import</button>
@@ -399,34 +403,6 @@ export default function ProfilesPage({ navigate }) {
           <span className="muted" style={{ fontSize: 12 }}>
             {filteredProfiles.length} of {profiles.length} models
           </span>
-          <div style={{ display: 'inline-flex', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => setViewMode('grid')}
-              style={{
-                fontSize: 12, padding: '4px 10px',
-                background: viewMode === 'grid' ? 'var(--bg-3)' : 'transparent',
-                fontWeight: viewMode === 'grid' ? 600 : 400,
-              }}
-              title="Card Grid View"
-            >
-              ⊞ Grid
-            </button>
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => setViewMode('table')}
-              style={{
-                fontSize: 12, padding: '4px 10px',
-                background: viewMode === 'table' ? 'var(--bg-3)' : 'transparent',
-                fontWeight: viewMode === 'table' ? 600 : 400,
-              }}
-              title="AdsPower Table View"
-            >
-              ☰ AdsPower Table
-            </button>
-          </div>
         </div>
       </div>
 
@@ -439,8 +415,8 @@ export default function ProfilesPage({ navigate }) {
           hint="Create your first model profile to begin organizing accounts and assigning team members."
           action={canManage && <button className="primary" onClick={() => setShowAdd(true)}>+ New Model</button>}
         />
-      ) : viewMode === 'table' ? (
-        /* AdsPower Spreadsheet Table View */
+      ) : (
+        /* High-Density Models Directory Table View */
         <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
@@ -460,6 +436,7 @@ export default function ProfilesPage({ navigate }) {
                 const isRunning = p.cloak_profile_name && cloakStatus && cloakStatus[p.cloak_profile_name] === 'running';
                 const isLaunching = launchingId === `model-${p.id}`;
                 const proxy = proxies.find(px => px.id === p.proxy_id);
+                const hasAccounts = (p.account_count || 0) > 0;
 
                 return (
                   <tr
@@ -549,10 +526,20 @@ export default function ProfilesPage({ navigate }) {
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <button
                           className="primary"
-                          disabled={isLaunching}
+                          disabled={isLaunching || !hasAccounts}
                           onClick={() => handleLaunchModel(p.id)}
-                          style={{ fontSize: 11, padding: '4px 10px' }}
-                          title={isRunning ? 'Focus running browser instance' : 'Launch isolated model browser'}
+                          style={{
+                            fontSize: 11, padding: '4px 10px',
+                            opacity: hasAccounts ? 1 : 0.5,
+                            cursor: hasAccounts ? 'pointer' : 'not-allowed'
+                          }}
+                          title={
+                            !hasAccounts
+                              ? 'No designated accounts linked — click Manage to add accounts'
+                              : isRunning
+                              ? 'Focus running browser instance'
+                              : 'Launch isolated model browser'
+                          }
                         >
                           {isLaunching ? '⏳ Starting…' : isRunning ? '● Running' : '▶ Open Browser'}
                         </button>
@@ -571,7 +558,17 @@ export default function ProfilesPage({ navigate }) {
                             style={{ fontSize: 11, padding: '4px 8px' }}
                             title="Edit model settings & assignments"
                           >
-                            ⚙
+                            ✏ Edit
+                          </button>
+                        )}
+                        {canManage && (
+                          <button
+                            className="ghost"
+                            onClick={() => del(p.id, p.name)}
+                            style={{ fontSize: 11, padding: '4px 8px', color: 'var(--danger-fg)' }}
+                            title="Delete model profile"
+                          >
+                            🗑 Delete
                           </button>
                         )}
                       </div>
@@ -581,160 +578,6 @@ export default function ProfilesPage({ navigate }) {
               })}
             </tbody>
           </table>
-        </div>
-      ) : (
-        /* Decluttered Card Grid View */
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
-          {filteredProfiles.map((p) => {
-            const isCm = (p.browser_mode || 'cloakmanager') === 'cloakmanager';
-            const isRunning = p.cloak_profile_name && cloakStatus && cloakStatus[p.cloak_profile_name] === 'running';
-            const isLaunching = launchingId === `model-${p.id}`;
-            const proxy = proxies.find(px => px.id === p.proxy_id);
-
-            return (
-              <div
-                key={p.id}
-                className="card"
-                data-profile-id={p.id}
-                style={{
-                  borderLeft: `4px solid ${p.avatar_color || 'var(--accent)'}`,
-                  padding: 16,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
-                  position: 'relative',
-                }}
-              >
-                {/* Header Row */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <h3
-                        onClick={() => navigate && navigate('model', { modelId: p.id })}
-                        style={{ margin: 0, cursor: 'pointer', fontSize: 16 }}
-                        title="Click to view details"
-                      >
-                        {p.name}
-                      </h3>
-                      {p.niche && <span className="pill" style={{ fontSize: 10 }}>{p.niche}</span>}
-                    </div>
-                    {p.main_email && <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{p.main_email}</div>}
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{
-                      fontSize: 10, padding: '2px 7px', borderRadius: 'var(--radius-pill)',
-                      background: isCm ? 'rgba(155,89,182,0.12)' : 'rgba(74,144,226,0.12)',
-                      color: isCm ? '#ba7ad8' : '#4a90e2',
-                      border: `1px solid ${isCm ? 'rgba(155,89,182,0.3)' : 'rgba(74,144,226,0.3)'}`,
-                      fontWeight: 600,
-                    }}>
-                      {isCm ? '👻 Cloak' : '⚡ Electron'}
-                    </span>
-                    {isRunning && (
-                      <span style={{
-                        fontSize: 9, padding: '2px 6px', borderRadius: 'var(--radius-pill)',
-                        background: 'rgba(122,154,90,0.2)', color: 'var(--online-green)',
-                        border: '1px solid rgba(122,154,90,0.4)', fontWeight: 700,
-                      }}>
-                        ● RUNNING
-                      </span>
-                    )}
-                    {canManage && (
-                      <button
-                        className="ghost"
-                        onClick={() => openEditModal(p)}
-                        style={{ padding: '2px 6px', fontSize: 12 }}
-                        title="Edit model settings & team assignments"
-                      >
-                        ⚙
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Info Badges */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span className="muted">Accounts:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontWeight: 600 }}>{p.account_count || 0}</span>
-                      <span className="dim">({p.ready_count || 0} ready)</span>
-                      {p.accounts && p.accounts.slice(0, 4).map(a => (
-                        <span key={a.id} style={{ fontSize: 11 }} title={`${a.platform}: ${a.username}`}>
-                          {PLATFORM_ICONS[a.platform] || '🌐'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span className="muted">Proxy:</span>
-                    {proxy ? (
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--gold)' }} title={`${proxy.host}:${proxy.port}`}>
-                        🌐 {proxy.label || `${proxy.host}:${proxy.port}`}
-                      </span>
-                    ) : (
-                      <span className="dim" style={{ fontSize: 11 }}>Direct (No proxy)</span>
-                    )}
-                  </div>
-
-                  {/* Team Members */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span className="muted">Team:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      {p.assigned_to_username && (
-                        <span style={{
-                          fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-pill)',
-                          background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text-1)'
-                        }} title={`Manager: ${p.assigned_to_username}`}>
-                          👤 {p.assigned_to_username}
-                        </span>
-                      )}
-                      {p.members && p.members.map(m => (
-                        <span key={m.id} style={{
-                          fontSize: 10, padding: '1px 6px', borderRadius: 'var(--radius-pill)',
-                          background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--gold)'
-                        }} title={`${m.display_name} (${m.role})`}>
-                          {m.display_name}
-                        </span>
-                      ))}
-                      {!p.assigned_to_username && (!p.members || p.members.length === 0) && (
-                        <span className="dim" style={{ fontSize: 11 }}>—</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {p.brand_voice && (
-                  <div className="muted" style={{ fontSize: 11, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    "{p.brand_voice}"
-                  </div>
-                )}
-
-                {/* Master Action Footer */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                  <button
-                    className="primary"
-                    disabled={isLaunching}
-                    onClick={() => handleLaunchModel(p.id)}
-                    style={{ flex: 1, fontSize: 12, padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                    title={isRunning ? 'Focus already open browser' : 'Launch browser with all accounts'}
-                  >
-                    {isLaunching ? '⏳ Launching…' : isRunning ? '● Open Browser (Running)' : '▶ Open Browser'}
-                  </button>
-                  <button
-                    className="ghost"
-                    onClick={() => navigate && navigate('model', { modelId: p.id })}
-                    style={{ fontSize: 12, padding: '6px 10px' }}
-                    title="Manage accounts and credentials"
-                  >
-                    Accounts →
-                  </button>
-                </div>
-              </div>
-            );
-          })}
         </div>
       )}
 
@@ -914,7 +757,7 @@ export default function ProfilesPage({ navigate }) {
                   <button type="button" className="ghost" onClick={() => exportProfile(editingProfile.id)}>
                     Export Bundle
                   </button>
-                  <button type="button" className="danger" onClick={() => del(editingProfile.id)}>
+                  <button type="button" className="danger" onClick={() => del(editingProfile.id, editingProfile.name)}>
                     Delete Model
                   </button>
                 </div>

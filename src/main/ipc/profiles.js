@@ -53,7 +53,7 @@ function register(ipcMain) {
 
       // Strict employee scoping: non-owners only see profiles they're assigned to.
       const scope = profileScopeClause(user, 'p');
-      const whereSql = teamId ? `(p.team_id = ? OR p.team_id IS NULL) AND ${scope.sql}` : scope.sql;
+      const whereSql = teamId ? `p.team_id = ? AND ${scope.sql}` : scope.sql;
       const whereParams = teamId ? [teamId, ...scope.params] : scope.params;
       const rows = getDb()
         .prepare(
@@ -229,12 +229,10 @@ function register(ipcMain) {
     }
   });
 
-  ipcMain.handle('profiles:delete', (_e, { token, profileId, teamId }) => {
+  ipcMain.handle('profiles:delete', (_e, { token, profileId }) => {
     try {
       requireOwnerOrAdmin(token);
-      const result = teamId
-        ? getDb().prepare('DELETE FROM model_profiles WHERE id = ? AND team_id = ?').run(profileId, teamId).changes
-        : getDb().prepare('DELETE FROM model_profiles WHERE id = ?').run(profileId).changes;
+      const result = getDb().prepare('DELETE FROM model_profiles WHERE id = ?').run(profileId).changes;
       if (!result) throw new Error('Profile not found');
       return { ok: true };
     } catch (err) {
