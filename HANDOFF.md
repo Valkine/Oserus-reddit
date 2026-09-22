@@ -1,423 +1,401 @@
-# Oserus Management — Complete Technical Handoff Document
+# OSERUS MANAGEMENT — COMPLETE BOT-TO-BOT TECHNICAL HANDOFF & UI SHOWCASE (HANDOFF.md)
 
-**Version:** 0.86.12  
-**Repository:** `Valkine/Oserus-reddit` (mirrored from `Gee2424/Oserus-reddit`)  
-**Application ID:** `com.oserus.management`  
-**Target Platform:** Windows x64 (NSIS Desktop Application)
+*The Definitive Technical Architecture, Feature Blueprint, and Visual UI Showcase for AI Agents and Systems Engineers.*  
+*Current System Version: v0.86.21+ · Last Updated: September 2026*  
+*Repository: Valkine/Oserus-reddit (mirrored from Gee2424/Oserus-reddit)*  
+*Platform: Windows x64 (Electron 32 / Node 22 / Better-SQLite3 / React 18 / Playwright CDP)*
 
 ---
 
 ## Table of Contents
-1. [Executive Summary](#1-executive-summary)
-2. [Tech Stack & Dependencies](#2-tech-stack--dependencies)
-3. [Repository Structure & Codebase Map](#3-repository-structure--codebase-map)
-4. [Main Process Architecture (`src/main/`)](#4-main-process-architecture-srcmain)
-5. [Anti-Detect Browser & Dual Engine (`browser.js` & CloakManager)](#5-anti-detect-browser--dual-engine)
-6. [Chrome DevTools Protocol (CDP) & Playwright Engine (`src/main/cdp/`)](#6-chrome-devtools-protocol-cdp--playwright-engine)
-7. [Automation, Autopilot & Coordinator (`services/`)](#7-automation-autopilot--coordinator)
-8. [Scripts & Content Sets Feature](#8-scripts--content-sets-feature)
-9. [Supabase Cloud Sync & Multi-Installation Team Model](#9-supabase-cloud-sync--multi-installation-team-model)
-10. [Local Database & Security (`db.js` & `credential_vault`)](#10-local-database--security)
-11. [Role-Based Access Control (RBAC) & Permissions](#11-role-based-access-control-rbac--permissions)
-12. [Renderer Architecture & UI Pages (`src/renderer/`)](#12-renderer-architecture--ui-pages)
-13. [Build, Packaging & CI/CD Release Pipeline](#13-build-packaging--cicd-release-pipeline)
-14. [Operational Playbook & Key Configuration](#14-operational-playbook--key-configuration)
+1. [Executive Summary & Agency Business Domain](#1-executive-summary--agency-business-domain)
+2. [Core Behavioral & Architectural Invariants ("The Law of Oserus")](#2-core-behavioral--architectural-invariants)
+3. [Complete Feature-by-Feature Blueprint](#3-complete-feature-by-feature-blueprint)
+   - 3.1 [Executive Dashboard & Live Creator Sales Stream](#31-executive-dashboard--live-creator-sales-stream)
+   - 3.2 [High-Density Models Directory](#32-high-density-models-directory)
+   - 3.3 [Fast Model & Accounts Onboarding Wizard](#33-fast-model--accounts-onboarding-wizard)
+   - 3.4 [Actionable Platforms Directory & 1-Click Presets](#34-actionable-platforms-directory--1-click-presets)
+   - 3.5 [Infloww-Style Live Creator Inbox & Chatting CRM](#35-infloww-style-live-creator-inbox--chatting-crm)
+   - 3.6 [Traffic Automation & CDP Playwright Automation](#36-traffic-automation--cdp-playwright-automation)
+   - 3.7 [Scheduler Pro & Multi-Account Queue](#37-scheduler-pro--multi-account-queue)
+   - 3.8 [Dual-Timezone Shift Scheduling Engine & Team Hub](#38-dual-timezone-shift-scheduling-engine--team-hub)
+   - 3.9 [CloakManager Antidetect Engine & Network Security](#39-cloakmanager-antidetect-engine--network-security)
+4. [Possible UI Showcase & High-Fidelity Wireframes](#4-possible-ui-showcase--high-fidelity-wireframes)
+   - 4.1 [UI Showcase: Executive Dashboard](#41-ui-showcase-executive-dashboard)
+   - 4.2 [UI Showcase: High-Density Models Directory](#42-ui-showcase-high-density-models-directory)
+   - 4.3 [UI Showcase: Fast Model & Accounts Setup Wizard](#43-ui-showcase-fast-model--accounts-setup-wizard)
+   - 4.4 [UI Showcase: Actionable Platforms & Presets](#44-ui-showcase-actionable-platforms--presets)
+   - 4.5 [UI Showcase: Infloww-Style Live Inbox](#45-ui-showcase-infloww-style-live-inbox)
+   - 4.6 [UI Showcase: Dual-Timezone Shift Schedule](#46-ui-showcase-dual-timezone-shift-schedule)
+5. [Database Architecture & Security Pipeline](#5-database-architecture--security-pipeline)
+6. [Complete IPC API Reference](#6-complete-ipc-api-reference)
+7. [Operational Playbook for Future AI Agents](#7-operational-playbook-for-future-ai-agents)
 
 ---
 
-## 1. Executive Summary
+## 1. Executive Summary & Agency Business Domain
 
-**Oserus Management** is an enterprise-grade desktop management suite tailored for multi-account social media operations (Reddit, X / Twitter, Instagram, TikTok, RedGifs, and OnlyFans). It unites:
+**Oserus Management** is an enterprise-grade desktop workstation engineered specifically for 7-to-8 figure OnlyFans, Fansly, and Fanvue creator management agencies.
 
-- **Isolated Anti-Detect Browsing:** A customized Chromium / Electron browser window using native `WebContentsView` partitions (per account) and an integrated **CloakManager / CloakBrowser** CDP engine that resists browser fingerprinting, prevents IP/WebRTC leaks, and maintains isolated cookie/storage jars.
-- **Automated Farming & Engagement:** Human-like scrolling, liking, following, viewing, and AI-assisted commenting with configurable pacing, quiet hours, and persona styles.
-- **Posting & Scheduling Hub:** Calendar/Kanban-based scheduling (Scheduler Pro), automated post generation via LLM cascade (Claude, Grok, OpenAI), and distributed cross-machine coordination.
-- **Chatter Scripts System:** Reusable, structured content "Sets" and "Steps" (media + text) that model chatters can deploy sequentially in live chats to preserve brand consistency.
-- **Multi-Tenant Cloud Sync:** Backed by Supabase Postgres with Realtime presence, distributed task locking (`post_locks`), machine tracking, and local OS keychain credential encryption (`safeStorage`).
+Managing high-earning models requires orchestrating two distinct operational pipelines:
+1. **Traffic Generation (Top of Funnel):** Farming, warming, and posting across dozens of accounts on Reddit, X (Twitter), Instagram, and TikTok to route traffic to monetized pages. This requires strict anti-fingerprinting, canvas/WebGL spoofing, and dedicated residential/mobile proxies.
+2. **Monetization & CRM (Bottom of Funnel):** Messaging paying fans 24/7 on OnlyFans, Fansly, and Fanvue to unlock Pay-Per-View (PPV) content, collect tips, and retain VIP subscribers. This requires an Infloww-style chatter inbox, fan spend tracking, and multi-timezone shift coordination.
 
----
-
-## 2. Tech Stack & Dependencies
-
-| Layer | Technologies | Purpose |
-|---|---|---|
-| **Runtime & Shell** | Electron 32.1.2, Node.js 22 | Desktop application runtime and OS integration |
-| **Frontend Framework** | React 18.3.1, Vite 5.4.8 | High-performance single-page app (SPA) UI |
-| **Local Database** | `better-sqlite3` 11.3.0 (WAL mode) | Low-latency local cache, protocol storage, and session registry |
-| **Cloud Synchronization** | `@supabase/supabase-js` 2.107.0 | Team sync, Postgres RLS, Realtime presence, and distributed locks |
-| **Browser Automation & CDP** | Playwright 1.48.0, `ws` 8.21.0 | CloakBrowser automation, script execution, and CDP orchestration |
-| **Proxy & Network Guard** | `proxy-chain` 2.7.1, `socks` 2.8.9 | Local HTTP-to-upstream proxy bridge, SOCKS5 auth, and IPv4 bridge |
-| **Security & Passwords** | Electron `safeStorage`, `bcryptjs` 2.4.3 | OS-level credential encryption (DPAPI on Windows, Keychain on macOS) |
-| **Auto-Updating** | `electron-updater` 6.3.9, `electron-log` | Background check, delta download, and restart-to-install |
+Prior to Oserus, agency owners had to pay for 4–6 separate SaaS tools (Antidetect browser + Infloww + Notion + custom warm-up scripts + scheduling tools). **Oserus unifies this entire workflow into a single local-first desktop application.**
 
 ---
 
-## 3. Repository Structure & Codebase Map
+## 2. Core Behavioral & Architectural Invariants
+
+Any AI bot or developer modifying this repository **MUST** respect these architectural rules:
+
+### Invariant 1: 1 Model Profile = 1 Browser Sandbox
+- Individual platform accounts (Reddit, X, Instagram, OnlyFans) are **NEVER launched in separate standalone windows**.
+- Launching browser automation or antidetect browsing launches **at the Model Profile level**. All platform accounts belonging to that model run isolated within that single browser environment.
+
+### Invariant 2: Strict Launch Guard (No 0-Account Launches)
+- A model browser session **MUST NEVER launch if the model has 0 designated accounts**.
+- Both the frontend (`Profiles.jsx`, `Dashboard.jsx`) and backend (`src/main/index.js`) enforce this rule.
+- Cookie warmers must never visit arbitrary sites (e.g. YouTube has been strictly removed).
+
+### Invariant 3: Strict Employee Model Isolation
+- Any non-owner/non-admin user (e.g., chatters, VAs, marketing coordinators) **MUST ONLY see model profiles and platform accounts explicitly assigned to them**.
+- All IPC queries enforce `profileScopeClause(user)` in SQLite. Unassigned workers see zero profiles.
+
+### Invariant 4: Absolute Zero Competitor Trademark Mentions
+- Never name competitor products (e.g. "AdsPower", "Multilogin", "Dolphin") in UI labels, documentation, or code.
+- Always name views descriptively: **"High-Density Models Table"** or **"Agency Directory"**.
+
+### Invariant 5: The "Anti-Big-Bar" Design Philosophy
+- Never render thick, gaudy 8px-12px progress bars.
+- Progress and revenue tracking must use sleek **3px blended obsidian micro-tracks** with soft gold-to-emerald illumination that blend into the card face.
+
+### Invariant 6: Atomic Onboarding (`profiles:createWithAccounts`)
+- Deprecate creating "empty" model profiles.
+- When creating a model, both the model profile, the CloakManager antidetect profile, and the designated platform accounts are committed in a single SQLite transaction with vault-encrypted passwords.
+
+---
+
+## 3. Complete Feature-by-Feature Blueprint
+
+### 3.1 Executive Dashboard & Live Creator Sales Stream (`Dashboard.jsx`)
+- **Real-Time Revenue Telemetry:** Displays Month-To-Date (MTD) Gross Earnings, Net Platform Commissions, and active license tier.
+- **Dynamic Earning-Scaled License Model:**
+  - Standard agency tiers scale with actual gross creator revenue:
+    - Tier 1: Under \$10k/mo (\$99/mo)
+    - Tier 2: \$10k–\$30k/mo (\$179/mo)
+    - Tier 3: \$30k–\$60k/mo (\$250/mo)
+    - Tier 4: \$60k–\$100k/mo (\$350/mo)
+    - Tier 5: \$100k–\$250k/mo (\$500/mo)
+  - **Over \$250k/mo:** Uncapped 1.0% volume scaling (`$500 + 1.0% * (Revenue - $250,000)`).
+- **Sleek 3px Blended Micro-Meter:** Seamless progress bar with amber-to-emerald gradient indicating progress toward the \$250k cap.
+- **Creator Sales Stream:**
+  - Filter pills: `All Sales`, `Tips` (💚), `Chatting Sales` (PPV unlocks 💙), `Pay Sales` (custom requests 💜).
+  - Shows platform badge (OnlyFans 🔞, Fansly 💙, Fanvue ✨), model name, fan handle, transaction amount (`+$120.00`), and relative timestamp.
+
+### 3.2 High-Density Models Directory (`Profiles.jsx`)
+- **Single Master Table:** High-density spreadsheet-style table with zero lag.
+- **Columns:** Model Name & Avatar, Niche/Category, Accounts Pill Badges, Model Dedicated Proxy, Assigned Team Members, Status Indicator, and Row Action Buttons.
+- **Row Actions:**
+  - `[ ▶ Open Browser ]`: Launches the isolated model antidetect environment. Disabled with tooltip if `account_count === 0`.
+  - `[ Manage → ]`: Direct jump to ModelDetail for deep account and credential management.
+  - `[ ✏ Edit ]`: Opens the Model Settings Modal (Proxy, Manager, Avatar Color, Brand Voice, Worker Assignments).
+  - `[ 🗑 Delete ]`: Direct deletion with confirmation modal.
+- **CloakManager Engine Health Pill:** Live status of the local CDP binary (`Engine Online` / `Engine Unavailable` with retry trigger).
+
+### 3.3 Fast Model & Accounts Onboarding Wizard (`Profiles.jsx`)
+- **Dual-Mode Setup Drawer:**
+  - **🪄 Guided Mode:**
+    - Model Name, Niche, Primary Manager, Model Dedicated Proxy, Browser Engine (`CloakManager` vs `Electron Standard`).
+    - Designated Platform Accounts Grid with 1-click quick-add buttons: `+OnlyFans`, `+Fansly`, `+Fanvue`, `+Reddit`, `+X`, `+IG`, `+TikTok`.
+    - Inline username and password fields (passwords automatically stored in DPAPI encrypted vault).
+  - **📋 Bulk Paste Mode:**
+    - Textarea accepting multi-line inputs: `platform:username[:password]` or comma-separated.
+    - Real-time regex parser generating live visual chips previewing parsed accounts before saving.
+- **Atomic Backend Transaction (`profiles:createWithAccounts`):**
+  - Inserts row into `model_profiles`.
+  - Inserts all accounts into `reddit_accounts`.
+  - Stores encrypted passwords in `credential_vault`.
+  - Generates CloakManager antidetect profile with hardware fingerprint.
+  - Returns `launch-ready` model immediately.
+
+### 3.4 Actionable Platforms Directory & 1-Click Presets (`Platforms.jsx`)
+- **1-Click Popular Creator Presets Catalog:**
+  - Pre-configured catalog: **OnlyFans** (🔞), **Fansly** (💙), **Fanvue** (✨), **LoyalFans** (👑), **ManyVids** (🎬), **Snapchat** (👻), **Telegram** (✈️), **Threads** (🧵), **Patreon** (🎨), **Twitch** (🎮), and **Kick** (🟢).
+  - 1-click `+ Install` button writes slug, official login URLs, brand colors, and username prefixes.
+- **Live Account Stats:** Displays `${p.account_count} active accounts` currently attached across models.
+- **Instant `[ + Link to Model ]` Modal:**
+  - Attach an account for this platform to any existing model profile without navigating away.
+
+### 3.5 Infloww-Style Live Creator Inbox & Chatting CRM (`Inbox.jsx`)
+- **Multi-Model Quick Switcher:** Left-rail sidebar displaying model avatars with unread badges, allowing chatters to switch between models instantly.
+- **Folder Filtration:**
+  - `Priority / Whales`: Fans who have spent over \$500.
+  - `Unreplied`: Messages requiring prompt response within SLA.
+  - `PPV Unlocked`: Fans who have purchased media in the last 24 hours.
+  - `Followers / Non-Paying`: Low-priority prospective buyers.
+- **Chatter Shift Lock:** Prevents two chatters from typing to the same fan simultaneously (collision avoidance via WebSocket broadcast).
+
+### 3.6 Traffic Automation & CDP Playwright Automation
+- **Playwright CDP Orchestrator (`src/main/cdp/`):** Connects to browser instances via port `7331` WebSocket.
+- **Humanized Actions:**
+  - Natural curve bezier mouse movements.
+  - Variable typing speed with typos and auto-correction.
+  - Random viewport scrolling and dwell times.
+- **Autopilot Engine:** Automatically rotates accounts through warming, feed browsing, upvoting, and commenting during configured agency hours.
+
+### 3.7 Scheduler Pro & Multi-Account Queue (`SchedulerPro.jsx`)
+- **Calendar & Timeline View:** Multi-account post scheduling with drag-and-drop rescheduling.
+- **AI Content Cascade:** Automated post generation using Claude 3.5 Sonnet, Grok 2, and GPT-4o with configured model personas and subreddit rules.
+- **Distributed Post Locks (`post_locks`):** Prevents duplicate posting across multiple team member laptops.
+
+### 3.8 Dual-Timezone Shift Scheduling Engine & Team Hub (`Team.jsx`)
+- **Dual-Timezone Clock:**
+  - Schedules created in **Agency Standard Time (AST)** (e.g. `America/New_York` EST).
+  - Automatically converted and displayed in the remote worker's **Local Detected Timezone** (e.g. `Asia/Manila` PHT UTC+8).
+- **Team Roster & Roles:**
+  - Built-in roles: `Owner`, `Admin`, `Manager`, `Chatter`, `Coordinator`, `Marketing`.
+  - Custom roles with granular assignment over 30+ permission tokens.
+
+### 3.9 CloakManager Antidetect Engine & Network Security
+- **Dual Browser Engines:**
+  - **CloakManager Antidetect:** Hardened Chromium binary with canvas noise, WebGL vendor masking, audio context randomization, font fingerprint spoofing, and WebRTC public IP leak prevention.
+  - **Electron Standard:** Lightweight native `WebContentsView` with partition isolation.
+- **Proxy Bridges:** SOCKS5 / HTTP upstream chaining with automatic authentication injection.
+
+---
+
+## 4. Possible UI Showcase & High-Fidelity Wireframes
+
+This section provides visual ASCII architectural wireframes showcasing the layout, hierarchy, and information density of Oserus Management.
+
+### 4.1 UI Showcase: Executive Dashboard (`Dashboard.jsx`)
 
 ```
-Oserus-reddit/
-├── .github/workflows/
-│   └── release.yml          # GitHub Actions workflow: builds Windows NSIS exe + bundles backend
-├── build/                   # Icons, bundled backend binaries, and build resources
-├── docs/                    # Architecture diagrams and specifications
-├── src/
-│   ├── main/                # Electron Main Process
-│   │   ├── cdp/             # Playwright/CDP connection manager & script orchestrator
-│   │   ├── cdp-scripts/     # Automated browser tasks (login, cookies, compose, inbox)
-│   │   ├── ipc/             # 35 modular IPC handler files
-│   │   ├── lib/             # Helper utilities (assignments, browser modes, retry)
-│   │   ├── platforms/       # Platform adapters (Reddit, X, Instagram, TikTok)
-│   │   ├── services/        # Background coordinators, proxies, AI generation, topic discovery
-│   │   ├── sync/            # Supabase Postgres schema, synchronization, and Realtime presence
-│   │   ├── antidetectPreload.js # Preload injected into browser partitions to spoof navigator/hardware
-│   │   ├── autofill.js      # In-page credential injection script builder
-│   │   ├── browser.js       # Standalone Oserus Browser window manager (WebContentsView based)
-│   │   ├── cloakmanager.js  # REST + WebSocket client for CloakManager backend (127.0.0.1:7331)
-│   │   ├── db.js            # SQLite database initialization, schema, migrations, and credential vault
-│   │   ├── fingerprint.js   # OS profile generation and canvas/webgl noise generator
-│   │   ├── index.js         # Main process entry point: lifecycle, window creation, auto-updater
-│   │   ├── tray.js          # System tray icon and context menu
-│   │   └── updater.js       # electron-updater configuration
-│   ├── preload/             # Electron Preload Bridges
-│   │   ├── index.js         # Exposes window.api to Management UI
-│   │   ├── browser.js       # Exposes window.oserusBrowser to Oserus Browser Chrome UI
-│   │   └── engagement.js    # Injected bridge for automated browser scrolling/actions
-│   ├── shared/
-│   │   └── permissions.js   # Single source of truth for 28+ RBAC permissions
-│   └── renderer/            # React UI Frontend
-│       ├── assets/          # Static logos and graphics
-│       ├── browser/         # BrowserShell.jsx (frameless tab strip, omnibox, bookmarks, side panel)
-│       ├── components/      # 22 reusable UI components (tables, drawers, panels, modals)
-│       ├── hooks/           # Custom React hooks (useCloakManagerLaunch, etc.)
-│       ├── lib/             # React contexts (Auth, Permissions, ActiveAccount, Toast, Confirm)
-│       ├── pages/           # 19 feature pages (Dashboard, ModelDetail, Scripts, Team, etc.)
-│       └── styles/          # global.css design tokens and styles
-├── package.json             # Build configuration, npm scripts, and electron-builder setup
-└── vite.config.js           # Vite development server and build config
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  OSERUS MANAGEMENT · Operations Hub                                                          [🟢 Cloud Connected]│
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                  │
+│  ┌─ MONTH-TO-DATE AGENCY GROSS REVENUE ────────────────────────────────────────────────────────────────────────┐ │
+│  │                                                                                                             │ │
+│  │   $142,850.00 USD                   [🔑 Tier 5: $100k–$250k ($500/mo) ]       3 Active Creator Platforms    │ │
+│  │   ▲ 18.4% vs last billing cycle     [ ⚡ Volume Rate: 1.0% above $250k ]       12 Running Browser Sessions   │ │
+│  │                                                                                                             │ │
+│  │   PROGRESS TO $250K SCALE CAP (57.1%)                                                                       │ │
+│  │   ═══════════════════════════════════════════════────────────────────────────────────── $250,000.00         │ │
+│  │   [ OnlyFans: $112,400 ]        [ Fansly: $22,150 ]        [ Fanvue: $8,300 ]                               │ │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                                                  │
+│  ┌─ LIVE CREATOR SALES & PPV FEED ─────────────────────────┐  ┌─ ACTIVE BROWSER SESSIONS ──────────────────────┐ │
+│  │ [ All Sales ] [ 💚 Tips ] [ 💙 Chatting/PPV ] [ 💜 Pay ]│  │ • Luna (Latina/Cosplay)      🟢 Running (1h 14m)│ │
+│  ├─────────────────────────────────────────────────────────┤  │   └ 4 Accounts: OF, X, Reddit, IG              │ │
+│  │ 🔞 OnlyFans · Luna          +$120.00 (PPV Video)   2m ago│  │ • Chloe (Fitness)            🟢 Running (3h 42m)│ │
+│  │ 💙 Fansly · Sarah           +$50.00 (Custom Tip)   5m ago│  │   └ 3 Accounts: Fansly, X, TikTok              │ │
+│  │ ✨ Fanvue · Mia             +$25.00 (Subscription) 8m ago│  │ • Elena (Gamer)             ⚪ Ready (Direct)  │ │
+│  │ 🔞 OnlyFans · Luna          +$250.00 (VIP Bundle) 12m ago│  │   └ 2 Accounts: OF, Reddit                     │ │
+│  └─────────────────────────────────────────────────────────┘  └────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 UI Showcase: High-Density Models Directory (`Profiles.jsx`)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Models Directory                                                        [ 🔍 Search models, niches, accounts… ] │
+│  High-density operational roster                                                       [ + New Model Wizard ]    │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  [ CloakManager Antidetect: 🟢 Engine Online (127.0.0.1:7331) ]                                                  │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  MODEL           NICHE        ACCOUNTS                PROXY              ASSIGNED TEAM   STATUS    ACTIONS       │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🔴 Luna         Cosplay      [OF] [X] [Reddit] [IG]  Res-US-East (42ms) Marcus (Mgr)    ● Running [▶ Open]      │
+│                               4 accounts configured                      Sarah (Chatter)           [Manage →]    │
+│                                                                                                    [✏ Edit]      │
+│                                                                                                    [🗑 Delete]   │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🟡 Chloe        Fitness      [Fansly] [X] [TikTok]   Direct (No Proxy)  Elena (Chatter) ● Running [▶ Open]      │
+│                               3 accounts configured                                                [Manage →]    │
+│                                                                                                    [✏ Edit]      │
+│                                                                                                    [🗑 Delete]   │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🟢 Elena        Gamer / Alt  [OF] [Reddit]           Mobile-UK (88ms)   — Unassigned —  ⚪ Ready   [▶ Open]      │
+│                               2 accounts configured                                                [Manage →]    │
+│                                                                                                    [✏ Edit]      │
+│                                                                                                    [🗑 Delete]   │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 UI Showcase: Fast Model & Accounts Setup Wizard (Drawer)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  ✨ Fast Model & Accounts Onboarding                                                                [ ✕ Close ]  │
+│  Configure a model and all its initial platform accounts in one step — launch-ready immediately.                 │
+│                                                                           [ 🪄 Guided Setup ]  [ 📋 Bulk Paste ] │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  Model Name *                  Primary Manager                 Niche / Category                                  │
+│  [ Luna                      ] [ Marcus (Manager)            ▼] [ Cosplay, Latina              ]                 │
+│                                                                                                                  │
+│  Model Dedicated Proxy         Browser Engine                  Avatar Color                                      │
+│  [ Res-US-East (Static)     ▼] [ CloakManager Antidetect    ▼] (●) (#c8553d) ( ) ( ) ( ) ( )                     │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  ┌─ DESIGNATED PLATFORM ACCOUNTS (3 Configured) ───────────────────────────────────────────────────────────────┐ │
+│  │ Quick Add: [+OnlyFans] [+Fansly] [+Fanvue] [+Reddit] [+X] [+Instagram] [+TikTok]                           │ │
+│  ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤ │
+│  │ [ 🔞 OnlyFans     ▼]  Username: [ @luna_vip            ]  Password: [ ••••••••••••       ]  [ ✕ Remove ]   │ │
+│  │ [ 𝕏 X (Twitter)   ▼]  Username: [ @luna_official       ]  Password: [ ••••••••••••       ]  [ ✕ Remove ]   │ │
+│  │ [ 🔴 Reddit       ▼]  Username: [ u/luna_cosplay       ]  Password: [ ••••••••••••       ]  [ ✕ Remove ]   │ │
+│  │                                                                                                             │ │
+│  │ [ + Add Another Account Row ]                                                                               │ │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                                                  │
+│  Brand Voice Guidelines (Optional):                                                                              │
+│  [ Flirty, playful, responds within 3 minutes, always uses butterfly emojis 🦋...                             ] │
+│                                                                                                                  │
+│  [ 🚀 Create Launch-Ready Model ]                                                      [ Cancel ]                │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.4 UI Showcase: Actionable Platforms & Presets (`Platforms.jsx`)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Platforms Directory & Creator Presets                                                  [ + Custom Platform ]    │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  ┌─ ⚡ 1-CLICK POPULAR CREATOR PRESETS ────────────────────────────────────────────────────────────────────────┐ │
+│  │ [ 🔞 OnlyFans    ✓ Added ]  [ 💙 Fansly    ✓ Added ]  [ ✨ Fanvue    + Install ]  [ 👑 LoyalFans + Install ]│ │
+│  │ [ 🎬 ManyVids   + Install ]  [ 👻 Snapchat  + Install ]  [ ✈️ Telegram  + Install ]  [ 🧵 Threads   + Install ]│ │
+│  │ [ 🎨 Patreon    + Install ]  [ 🎮 Twitch    + Install ]  [ 🟢 Kick      + Install ]                            │ │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                                                  │
+│  ACTIVE PLATFORMS DIRECTORY                                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐ │
+│  │ ● 🔞 OnlyFans     onlyfans   [BUILT-IN]  [ 12 active accounts ]   https://onlyfans.com                      │ │
+│  │                                                      [ + Link to Model ]  [ Edit ]                          │ │
+│  ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤ │
+│  │ ● 💙 Fansly       fansly     [BUILT-IN]  [ 6 active accounts ]    https://fansly.com                        │ │
+│  │                                                      [ + Link to Model ]  [ Edit ]                          │ │
+│  ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤ │
+│  │ ● 𝕏 X (Twitter)   x          [BUILT-IN]  [ 24 active accounts ]   https://x.com                             │ │
+│  │                                                      [ + Link to Model ]  [ Edit ]                          │ │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.5 UI Showcase: Infloww-Style Live Inbox (`Inbox.jsx`)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  CREATOR MESSAGING INBOX                                                                     [ 🔔 Global Sound ] │
+├──────────────┬────────────────────────┬──────────────────────────────────────────┬───────────────────────────────┤
+│ MODEL SELECT │ FANS & FOLDERS         │ LIVE CHAT: Dave (@dave_nyc)              │ FAN TELEMETRY & SPEND VAULT   │
+├──────────────┼────────────────────────┼──────────────────────────────────────────┼───────────────────────────────┤
+│ (●) Luna     │ [ Whale ] [ Unreplied ]│ [Dave - 10:14 PM]: Hey Luna! Loved your  │ 👤 Dave                       │
+│     (3 new)  │                        │ new set today! Any customs available?    │ ⭐ VIP Whale ($1,840 Total)   │
+│              │ ⭐ Dave ($1,840)       │                                          │ 🔞 OnlyFans Subscriber: 6 mos │
+│ ( ) Chloe    │   "Any customs avail?" │ [Sarah (Chatter) - 10:15 PM]:            │ 📍 Location: New York, USA    │
+│     (0 new)  │                        │ Hey handsome! Yes, filming today 🦋      │                               │
+│              │ John ($420)            │                                          │ ┌─ MEDIA VAULT (SCRIPTS) ───┐ │
+│ ( ) Elena    │   "Unlocked video"     │ ┌─ ATTACH PPV BUNDLE ──────────────────┐ │ │ [Set A: Beach Video - $35]│ │
+│     (1 new)  │                        │ │ Summer Beach Set ($35.00) [Send]     │ │ │ [Set B: Shower Clip - $50]│ │
+│              │ Mark ($85)             │ └──────────────────────────────────────┘ │ │ [Set C: Custom Photo - $15]│ │
+│              │   "Subscribed"         │ [ Type message...                      ] │ └───────────────────────────┘ │
+└──────────────┴────────────────────────┴──────────────────────────────────────────┴───────────────────────────────┘
+```
+
+### 4.6 UI Showcase: Dual-Timezone Shift Schedule (`Team.jsx`)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Team & Shift Operations                                        [ Agency Standard Time: America/New_York (EDT) ] │
+│  [ Team Roster ]  [ 📅 Shift Calendar ]  [ Custom Roles ]  [ License & Earnings ]       [ + Schedule Shift ]     │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  WORKER              ROLE     ASSIGNED MODEL  AGENCY TIME (EDT)      WORKER LOCAL TIME (PHT UTC+8)   STATUS      │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  Marcus Vance        Manager  All Models      09:00 AM – 05:00 PM    09:00 PM – 05:00 AM (Next Day)  🟢 On Shift │
+│  Sarah Jenkins       Chatter  Luna, Chloe     05:00 PM – 01:00 AM    05:00 AM – 01:00 PM             🟢 On Shift │
+│  Elena Rostova       Chatter  Elena           01:00 AM – 09:00 AM    01:00 PM – 09:00 PM             ⚪ Upcoming │
+│  Mark Sterling       Traffic  All Reddit      10:00 AM – 06:00 PM    10:00 PM – 06:00 AM             🟡 Idle 10m │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Main Process Architecture (`src/main/`)
+## 5. Database Architecture & Security Pipeline
 
-### 4.1 Entry Point (`index.js`)
-- **Network & DNS Hardening:**
-  Enforces strict anti-leak flags before `app.whenReady()`:
-  - Disables non-proxied WebRTC UDP (`webrtc-ip-handling-policy: disable_non_proxied_udp`).
-  - Disables QUIC protocol (`disable-quic`) to prevent UDP traffic leaking around TCP proxies.
-  - Disables speculative DNS and prefetching (`AsyncDns`, `dns-prefetch-disable`, `no-pings`).
-  - Forces IPv4 resolution order (`dns.setDefaultResultOrder('ipv4first')`).
-- **Main Window Management:**
-  Hosts the single-page management dashboard with native frameless styling and context isolation.
-- **Pop-out Window Factory (`openPopout`):**
-  Allows detaching any page (e.g. `#popout=inbox` or `#popout=scheduler`) into a standalone, always-on-top window while sharing state and storage.
-- **IPC Registrations:**
-  Bootstraps all 35 IPC modules across authentication, profiles, accounts, proxies, and automation.
-- **CloakManager Backend Auto-Launcher:**
-  In production builds (`app.isPackaged`), detects, spawns, and health-checks the bundled `ctrldlogin-backend-windows.exe` folder on a free local port, updates the client base URL, and binds the WebSocket.
+### 5.1 Local SQLite Tables (`src/main/db.js`)
+The application operates on `better-sqlite3` in WAL mode:
 
-### 4.2 IPC Subsystem (`src/main/ipc/`)
-Every major domain is encapsulated in an isolated handler module:
-
-| Module | Responsibilities |
-|---|---|
-| `accounts.js` | Social account CRUD, status lifecycle (`warming`, `ready`, `paused`, `banned`), proxy binding |
-| `auth.js` / `teamAuth.js` | Operator login, token generation, session heartbeat, password changes |
-| `automation.js` / `engagementRuns.js` | Managing and executing saved engagement presets |
-| `autopilotProtocol.js` | Unified profile-level posting and commenting protocol settings |
-| `cloakmanager.js` | Profile creation, status checking, binary updates, and launch retry |
-| `cloud.js` | Supabase connection status, manual sync triggers, and peer diagnostics |
-| `inbox.js` | Multi-account messaging aggregation, message polling, and sending |
-| `intelligence.js` | Keyword search across platforms, content link harvesting, engagement statistics |
-| `platforms.js` | Platform registry (Reddit, RedGifs, X, Instagram, TikTok, OnlyFans) |
-| `posts.js` / `scheduled.js` | Immediate posting, post draft management, and Kanban scheduler |
-| `profiles.js` | Model profiles CRUD, primary manager assignment, and proxy fallbacks |
-| `proxies.js` | Proxy testing, latency checking, IP lookup, and credential masking |
-| `roles.js` / `team.js` | Team members, invitation tokens, machine sessions, and permission overrides |
-| `scripts.js` | Content Sets and ordered Steps (media upload + message text) |
-
----
-
-## 5. Anti-Detect Browser & Dual Engine
-
-The application supports **two distinct browser modes** per model or account:
-
-```mermaid
-flowchart TD
-    Launch[User Clicks Launch / Open Browser] --> CheckMode{Resolved Mode?}
-    
-    CheckMode -->|Electron Mode| ElectronBrowser[Oserus Browser Window]
-    ElectronBrowser --> WebContentsView[Per-Account WebContentsView Partition]
-    WebContentsView --> ProxyChain[Local proxy-chain Bridge]
-    WebContentsView --> PreloadSpoof[antidetectPreload.js]
-    PreloadSpoof --> TargetSite[Reddit / X / Instagram]
-
-    CheckMode -->|CloakManager Mode| CDPOrchestrator[CDP Orchestrator]
-    CDPOrchestrator --> BackendSpawn[CloakManager Backend :7331]
-    BackendSpawn --> CloakBrowser[CloakBrowser Process]
-    CDPOrchestrator --> PlaywrightCDP[Playwright CDP Session]
-    PlaywrightCDP --> LaunchScripts[Automated Launch Scripts]
-    LaunchScripts --> TargetSite
+```
+┌───────────────────────┐       ┌───────────────────────┐       ┌───────────────────────┐
+│     model_profiles    │1     *│    reddit_accounts    │1     *│   creator_transactions│
+├───────────────────────┤───────├───────────────────────┤       ├───────────────────────┤
+│ id (PK)               │       │ id (PK)               │       │ id (PK)               │
+│ name                  │       │ profile_id (FK)       │       │ platform (OF/FN/FV)   │
+│ niche                 │       │ platform              │       │ model_id (FK)         │
+│ proxy_id (FK)         │       │ username              │       │ amount_cents          │
+│ team_id               │       │ partition_key         │       │ type (tip/chat/pay)   │
+│ browser_mode          │       │ proxy_id (FK)         │       │ fan_handle            │
+│ cloak_profile_name    │       │ status                │       │ created_at            │
+└───────────────────────┘       └───────────────────────┘       └───────────────────────┘
+            │1
+            │*
+┌───────────────────────┐       ┌───────────────────────┐       ┌───────────────────────┐
+│  profile_assignments  │*     1│         users         │1     *│         shifts        │
+├───────────────────────┤───────├───────────────────────┤───────├───────────────────────┤
+│ profile_id (FK)       │       │ id (PK)               │       │ id (PK)               │
+│ user_id (FK)          │       │ username / email      │       │ user_id (FK)          │
+│ role (mgr/chatter)    │       │ role (owner/admin/...)│       │ profile_id (FK)       │
+└───────────────────────┘       │ today_seconds         │       │ start_time / end_time │
+                                └───────────────────────┘       └───────────────────────┘
 ```
 
-### 5.1 Mode 1: Oserus Browser (Native Electron)
-Implemented in `src/main/browser.js` and rendered via `src/renderer/browser/BrowserShell.jsx`:
-- **Native `WebContentsView` Partitioning:** Each account runs in a discrete partition (`persist:<partition_key>`). Sessions never share cookies, localStorage, or caches.
-- **Unified Multi-Tab Window (`openForModel`):** All accounts belonging to a model open in one window. Pinned tabs display the platform icon and username; tab clicks re-scope the active account dynamically.
-- **Local Proxy Anonymization (`sessionPrep.js`):** Upstream SOCKS5 or HTTP/HTTPS proxies are routed through a local loopback bridge (`proxy-chain`), ensuring credentials never leak and proxy challenges are answered transparently.
-- **Preload Spoofing (`antidetectPreload.js`):** Deep prototype patches for `navigator` (userAgent, platform, hardwareConcurrency, deviceMemory), `screen` (dimensions, colorDepth), `Intl.DateTimeFormat` (timezone), WebGL vendor/renderer strings, and audio buffer noise.
-- **Embedded Side Panel:** Right-hand drawer providing quick access to Intelligence, Automation Runs, Inbox, Scheduler, and Scripts directly alongside the browsing session.
-
-### 5.2 Mode 2: CloakManager (External Anti-Detect Engine)
-Implemented in `src/main/cloakmanager.js` and `src/main/services/cloakManagerBinary.js`:
-- Spawns the dedicated `ctrldlogin-backend-windows.exe` daemon.
-- Connects via REST API (`/api/profiles`, `/api/launch`, `/api/running`) and WebSocket for real-time lifecycle notifications (`cdp_ready`, `profile_stopped`).
-- Bundles full backend dependencies (DLLs and extension modules) within the application installer resources.
-- Provides industrial-grade browser fingerprint isolation specifically tuned to evade modern anti-bot systems.
+### 5.2 Credential Vault (`credential_vault`)
+- Encrypted using Electron native `safeStorage` (backed by Windows DPAPI or macOS Keychain).
+- Keys:
+  - `account_password:{accountId}`
+  - `email_password:{accountId}`
+- Plaintext passwords **never touch disk in unencrypted format**.
 
 ---
 
-## 6. Chrome DevTools Protocol (CDP) & Playwright Engine (`src/main/cdp/`)
+## 6. Complete IPC API Reference
 
-When running in CloakManager mode, Oserus drives browser automation via Chrome DevTools Protocol (CDP) using Playwright:
-
-### Core Modules:
-- **`orchestrator.js`:** Single owner of the launch lifecycle state machine:
-  `idle` ➔ `launching` ➔ `warming` ➔ `cdp_connecting` ➔ `running_scripts` ➔ `ready` (or `failed`).
-  Maintains a per-profile mutex (`withProfileLock`) so automation tasks (e.g. background comments) and manual launches never conflict on the same browser page.
-- **`connection-manager.js`:** Pools and maintains live Playwright CDP connections to CloakBrowser instances, handling reconnects and health monitoring.
-- **`script-discovery.js` & `script-executor.js`:** Discovers and executes task and setup scripts.
-
-### Script Catalog (`src/main/cdp-scripts/`):
-- **Launch Setup:**
-  - `bookmarks.js`: Seeds the browser's bookmark bar with platform links.
-  - `cookie-warmer.js`: Navigates to neutral sites to establish browsing history.
-  - `environment.js`: Validates window bounds, timezone, and network viability.
-  - `homepage-tiles.js`: Sets up initial new-tab tiles.
-- **Authentication:**
-  - `reddit-login.js`: Detects login state, enters credentials from vault, and verifies session cookies.
-- **Tasks:**
-  - `reddit/inbox-fetch.js`: Scrapes unread notifications and messages via CDP.
-  - `reddit/inbox-reply.js`: Submits threaded comment replies or direct messages.
-  - `reddit/submit.js`: Automates post submission with title, flair, and link/text bodies.
-  - `x/compose.js`: Automates tweet creation on X.
+| IPC Channel | Arguments | Response | Description |
+|---|---|---|---|
+| `profiles:list` | `{ token, teamId }` | `{ ok, profiles }` | Lists models scoped strictly by role (`profileScopeClause`). |
+| `profiles:createWithAccounts` | `{ token, name, niche, proxyId, browserMode, accounts, teamId }` | `{ ok, id, accountCount }` | Atomic transaction creating model + accounts + vault passwords. |
+| `profiles:update` | `{ token, profileId, updates, teamId }` | `{ ok }` | Updates model metadata, proxy, or browser mode. |
+| `profiles:delete` | `{ token, profileId, teamId }` | `{ ok }` | Cascading delete of model, accounts, and assignments. |
+| `platforms:list` | None | `{ ok, platforms }` | Returns all platforms with `account_count` calculated. |
+| `platforms:create` | `{ token, platform }` | `{ ok, id }` | Registers a built-in preset or custom platform. |
+| `platforms:delete` | `{ token, platformId }` | `{ ok }` | Removes custom platform. |
+| `accounts:create` | `{ token, profileId, platform, username, password, proxyId, teamId }` | `{ ok, id }` | Attaches single account to model with encrypted password. |
+| `oserus-browser:openForModel` | `{ profileId }` | `{ ok, cdpPort }` | Launches isolated model browser session (enforces Launch Guard). |
+| `license:getTransactions` | `{ token, teamId }` | `{ ok, transactions }` | Retrieves creator tips, PPV unlocks, and sales. |
+| `license:addTransaction` | `{ token, transaction }` | `{ ok, id }` | Records live OnlyFans/Fansly/Fanvue sale. |
+| `shifts:list` | `{ token, teamId }` | `{ ok, shifts }` | Retrieves scheduled chatter shifts with timezone offsets. |
 
 ---
 
-## 7. Automation, Autopilot & Coordinator
+## 7. Operational Playbook for Future AI Agents
 
-### 7.1 Multi-Platform Posting Coordinator (`services/coordinator.js`)
-- Runs as a persistent background timer checking for due posts.
-- **Platform Separation:** Accounts are partitioned by platform (Reddit, X, IG, TikTok) to prevent cross-platform rate-limit interference.
-- **Proxy Serialization:** Accounts sharing the same proxy execute serially to prevent burning residential IP addresses with concurrent requests.
-- **Distributed Machine Lock:** Acquires a lock on `post_locks` via Supabase so multiple operator machines never post to the same account at the same time.
-- **Remote Killswitch:** Listens to `machine_sessions.autopilot_enabled`. Team managers can remotely disable autopilot on any specific machine from the Team page.
+When continuing work on this codebase, **always follow these procedures**:
 
-### 7.2 Engagement Automation (`services/engagement.js` & `engagementRuns.js`)
-- Simulates natural user sessions in hidden browser windows.
-- Performs human-like scrolling, video watch durations, like probabilities, and follow actions.
-- **AI Persona Commenting:** Generates contextual comments using AI personas (`curious`, `playful`, `flirty`, `dry`, or `custom`) powered by Claude, Grok, or OpenAI.
-- **Runs Presets:** Saved presets stored in `engagement_runs` allow operators to configure standard engagement templates (e.g., "Aggressive Warmup", "Light Lurk").
-
----
-
-## 8. Scripts & Content Sets Feature
-
-Located in `src/renderer/pages/Scripts.jsx` and backed by `src/main/ipc/scripts.js`:
-
-```mermaid
-erDiagram
-    model_profiles ||--o{ content_sets : owns
-    content_sets ||--|{ content_set_steps : contains
-    
-    content_sets {
-        int id PK
-        int profile_id FK
-        string name
-        int created_by_user_id
-        timestamp created_at
-    }
-    
-    content_set_steps {
-        int id PK
-        int set_id FK
-        int ordinal
-        string media_path
-        string media_kind
-        string message_text
-    }
-```
-
-- **Purpose:** Solves the chatter coordination problem. Models often have specific paid content bundles (e.g., photo sets, striptease progressions) that chatters must deliver in an exact sequence with accompanying script text.
-- **Structure:**
-  - **Content Set:** Named collection belonging to a model (e.g., "Tease & Reveal Set").
-  - **Content Steps:** Ordered items (`ordinal`) containing a local media asset (image/video stored in `userData/content_set_media/<set_id>/`) and corresponding text.
-- **Access Control:** Scoped by model assignment (`canAccessProfile`). Chatters only see and deploy sets for models assigned to them.
-- **Dual Display:** Built and managed on the standalone **Scripts Page**; viewed and executed step-by-step from the **Browser Side Panel**.
-
----
-
-## 9. Supabase Cloud Sync & Multi-Installation Team Model
-
-Designed in `Team_architecture.md` and implemented in `src/main/sync/supabase.js`:
-
-### 9.1 Synchronized Tables
-- `teams` & `team_members`: Organization hierarchy and membership.
-- `account_assignments`: Maps operator user IDs to specific social accounts or models.
-- `machine_sessions`: Registry of every installation, hostnames, and autopilot status.
-- `post_locks`: Distributed locking mechanism preventing double-posting.
-- `model_profiles`, `reddit_accounts`, `proxies`: Core social media management assets.
-- `engagement_runs`, `content_sources`, `docs`: Shared operational templates.
-
-### 9.2 Realtime Presence & Heartbeats
-- Joins the Supabase Realtime channel `oserus:presence`.
-- Emits a heartbeat every 15 seconds containing operator user ID, device hostname, active accounts, and app version.
-- Allows team owners to see live operator activity and machine status in real time.
-
----
-
-## 10. Local Database & Security (`db.js` & `credential_vault`)
-
-### 10.1 SQLite Architecture
-- Database file located at: `%APPDATA%\oserus-management\reddit-manager.db`.
-- Configured with **Write-Ahead Logging (WAL)** (`journal_mode = WAL`) and foreign key constraints enabled for concurrent read/write stability.
-
-### 10.2 Zero-Knowledge Credential Vault (`credential_vault`)
-To prevent exposing sensitive social account passwords in cloud databases:
-- Passwords for social accounts and proxies are **never written to Supabase in plaintext**.
-- Stored locally in the `credential_vault` table.
-- Encrypted using **Electron `safeStorage`**, which leverages Windows Data Protection API (DPAPI) or macOS Keychain.
-- Each operator enters credentials once on their workstation, or pulls shared team credentials via authenticated end-to-end encryption.
-
----
-
-## 11. Role-Based Access Control (RBAC) & Permissions
-
-Defined in `src/shared/permissions.js`:
-
-### Role Hierarchy
-1. **Owner (`owner`):** Full system access, billing, team deletion, role editing.
-2. **Admin (`admin`):** Full management access, member invitations, proxy configuration, AI settings.
-3. **Manager (`manager`):** Model assignments, schedule coordination, script creation, team oversight.
-4. **Chatter (`chatter`):** Restricted to assigned models; access to Inbox, Scripts viewer, and Browser.
-5. **Virtual Assistant (`reddit_va` / `va`):** Restricted to assigned accounts; access to Scheduler, Autopilot, and Browser.
-
-### Permission Mapping Matrix (Key Permissions)
-
-| Permission Key | Description | Owner | Admin | Manager | Chatter | VA |
-|---|---|:---:|:---:|:---:|:---:|:---:|
-| `dashboard.view` | View command center | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `profiles.manage` | Create/edit model profiles | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `accounts.manage` | Link/delete social accounts | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `accounts.launch` | Open Oserus Browser | ✅ | ✅ | ✅ | Assigned | Assigned |
-| `inbox.view` | Access messaging & direct messages | ✅ | ✅ | ❌ | Assigned | ❌ |
-| `scripts.manage` | Build & edit content sets/steps | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `scripts.use` | View & deploy content steps | ✅ | ✅ | ✅ | Assigned | ❌ |
-| `protocols.manage` | Edit autopilot & engagement runs | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `team.members` | Invite and remove team members | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `team.machines` | View & toggle remote autopilot | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `settings.edit` | Configure proxies & AI API keys | ✅ | ✅ | ❌ | ❌ | ❌ |
-
----
-
-## 12. Renderer Architecture & UI Pages (`src/renderer/`)
-
-### 12.1 State & Context Hierarchy (`App.jsx`)
-```
-AuthProvider
- └── PermissionsProvider
-      └── ActiveAccountProvider
-           └── ToastProvider
-                └── ConfirmProvider
-                     └── InboxLiveProvider
-                          └── Shell (Sidebar + Page Content)
-```
-
-### 12.2 Page Guide
-
-| Page | File | Purpose |
-|---|---|---|
-| **Dashboard** | `pages/Dashboard.jsx` | Command center: earnings metrics, active team members, quick scheduler, and live activity log |
-| **Models** | `pages/Profiles.jsx` | Grid/list of all models with avatar, assigned accounts count, and quick launch |
-| **Model Detail** | `pages/ModelDetail.jsx` | Full model manager: 6 platform slots (Reddit, RedGifs, X, IG, TikTok, OF), browser mode selector, CloakManager profile launcher |
-| **Browser Shell** | `browser/BrowserShell.jsx` | Frameless browser UI: account tabs, bookmarks, omnibox, proxy pill, and 5-tab side panel |
-| **Automation** | `pages/Automation.jsx` | Engagement runs manager and autopilot protocol configuration |
-| **Automation Runs** | `pages/AutomationRuns.jsx` | Builder for engagement presets (scroll, like, comment probabilities, AI prompts) |
-| **Scheduler Pro** | `pages/SchedulerPro.jsx` | Kanban board and calendar for queued and scheduled posts |
-| **Inbox** | `pages/Inbox.jsx` | Multi-account messaging center for Reddit with message threading and template replies |
-| **Scripts** | `pages/Scripts.jsx` | Content Set and Step builder for model media progressions |
-| **Intelligence** | `pages/Intelligence.jsx` | Subreddit discoverability, karma gate analysis, and keyword research |
-| **Team** | `pages/Team.jsx` | Team member roster, invitations, machine sessions, and role configuration |
-| **Settings** | `pages/Settings.jsx` | Global proxy pool, AI provider keys (Claude/Grok/OpenAI), and Supabase connection status |
-
----
-
-## 13. Build, Packaging & CI/CD Release Pipeline
-
-### 13.1 Build Commands
-```bash
-# Start Vite development server + Electron
-npm run dev
-
-# Compile React frontend
-npm run build:renderer
-
-# Package Windows NSIS installer
-npm run build:win
-
-# Build and publish release assets to GitHub Releases
-npm run publish
-```
-
-### 13.2 Packaging Configuration (`package.json`)
-- **Output:** `release/Oserus-Management-Setup-${version}.exe`
-- **Extra Resources:**
-  - `build/backend/` ➔ Bundled into app resources as `backend/` (contains `ctrldlogin-backend-windows.exe` and its supporting DLLs).
-  - `build/icon.ico` & `build/icon.png`.
-- **Target GitHub Repository:**
-  Configured in `package.json`:
-  ```json
-  "publish": {
-    "provider": "github",
-    "owner": "Valkine",
-    "repo": "Oserus-reddit",
-    "releaseType": "release"
-  }
-  ```
-  *(Updated from `Gee2424` to `Valkine` so subsequent automated builds publish directly to your repository).*
-
-### 13.3 GitHub Actions Workflow (`.github/workflows/release.yml`)
-1. Triggers manually via `workflow_dispatch` or on version tag pushes (`v*`).
-2. Downloads the latest standalone CloakManager backend zip.
-3. Unpacks it into `build/backend`.
-4. Executes `npm run build:win`.
-5. Uploads `Oserus-Management-Setup-X.Y.Z.exe`, `latest.yml`, and `.blockmap` to GitHub Releases.
-
----
-
-## 14. Operational Playbook & Key Configuration
-
-### 14.1 Releasing a New Version
-1. Bump the version number in `package.json` (e.g., `0.86.13`).
-2. Commit and push changes to `main`:
-   ```bash
-   git add package.json
-   git commit -m "bump version to 0.86.13"
-   git push origin main
-   ```
-3. Go to GitHub: **Actions** ➔ **Release Windows installer** ➔ **Run workflow**.
-4. GitHub Actions will build the installer and publish the release with `latest.yml`.
-5. All installed operator clients will automatically detect the new release and prompt to install.
-
-### 14.2 Troubleshooting CloakManager "Unavailable"
-If the CloakManager status badge shows "Unavailable":
-1. Open the model detail page and click **"Start CloakManager"** or **"Retry profile setup"**.
-2. Check if another process is holding port `7331`.
-3. Ensure the `backend/` folder contains all DLLs (`python310.dll`, etc.) alongside `backend.exe`.
-
-### 14.3 Database Reset & Fresh Start
-If local SQLite data needs to be cleared:
-- Close Oserus Management.
-- Navigate to `%APPDATA%\oserus-management\`.
-- Remove or rename `reddit-manager.db`, `reddit-manager.db-wal`, and `reddit-manager.db-shm`.
-- Relaunch the app; it will automatically regenerate fresh tables and pull team data from Supabase upon login.
+1. **Verify Syntax Before Committing:**
+   - Run `npm run build:renderer` to ensure Vite / React 18 compiles with 0 errors.
+   - Run `node -c <modified_files>` on any modified files in `src/main/`.
+2. **Execute Full Deployment Pipeline:**
+   - Bump version in `package.json` and `DESIGN.md`.
+   - Commit with descriptive message.
+   - Tag with git (`git tag v0.XX.XX`).
+   - Push **both `main` and the tag** to remote:
+     `git push <remote_with_pat> main v0.XX.XX`
+3. **Monitor CI/CD Build:**
+   - Query GitHub Actions API to track the Windows NSIS installer build.
+   - Once completed, download installer and run `/S` silent update.
+4. **Preserve Established UI Philosophy:**
+   - Do not add random buttons to the header.
+   - Keep the dark obsidian theme (`#0c0f0d`, `#161a17`, Gold `#d4a64a`, Emerald `#7a9a5a`).
+   - Never reintroduce competitor names.
+   - Keep models table clean and high-density.
