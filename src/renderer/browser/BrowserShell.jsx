@@ -229,7 +229,8 @@ export default function BrowserShell() {
         <button style={navBtn} disabled={!active?.canForward} onClick={() => window.oserusBrowser.forward()} title="Forward">›</button>
         <button style={navBtn} onClick={() => window.oserusBrowser.reload()} title="Reload (Ctrl+R)">↻</button>
         <button style={navBtn} onClick={() => window.oserusBrowser.navigate('https://www.google.com')} title="Home">⌂</button>
-        <form onSubmit={submitOmni} style={{ flex: 1, display: 'flex' }}>
+        <form onSubmit={submitOmni} style={{ flex: 1, display: 'flex', position: 'relative', alignItems: 'center' }}>
+          <span style={{ position: 'absolute', left: 10, fontSize: 11, opacity: 0.6, pointerEvents: 'none', userSelect: 'none' }} title="Secure Connection">🔒</span>
           <input
             ref={omniRef}
             value={omni}
@@ -237,8 +238,20 @@ export default function BrowserShell() {
             onFocus={(e) => e.target.select()}
             placeholder="Search Google or type a URL"
             spellCheck={false}
-            style={omniInput}
+            style={{ ...omniInput, paddingLeft: 28, paddingRight: 28 }}
           />
+          <button
+            type="button"
+            style={{
+              position: 'absolute', right: 8, background: 'none', border: 'none',
+              fontSize: 13, color: '#9aa0a6', cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+            title="Star / Bookmark tab"
+            onClick={() => window.oserusBrowser.newTab(omni || 'https://google.com')}
+          >
+            ☆
+          </button>
         </form>
 
         {/* Account switching is the tab strip now — no picker. */}
@@ -1027,11 +1040,13 @@ const chromeRow = {
   flexShrink: 0,
 };
 const navBtn = {
-  width: 30, height: 30, borderRadius: 6,
-  background: 'transparent',
-  color: BRAND.text0, fontSize: 16, lineHeight: 1,
+  width: 28, height: 28, borderRadius: '50%',
+  background: 'transparent', border: 'none',
+  color: BRAND.text0, fontSize: 15, lineHeight: 1,
   flexShrink: 0,
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  cursor: 'pointer',
+  transition: 'background 0.15s ease',
 };
 const navBtnActive = {
   background: BRAND.gold, color: BRAND.bg0,

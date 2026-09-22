@@ -33,21 +33,28 @@ const metadata = {
  * @returns {Promise<Object>} Warm-up result
  */
 async function execute(nativeConnection, context) {
-  const { page } = nativeConnection;
+  const { page, context: browserContext } = nativeConnection;
   const { accountId } = context;
 
-  console.log('[Cookie Warmer] Starting cookie warm-up for account:', accountId);
+  console.log('[Cookie Warmer] Starting background cookie warm-up for account:', accountId);
+
+  let targetPage = page;
+  let isDedicatedBackgroundPage = false;
+
+  // Spawn a dedicated background page in the shared context so warming occurs
+  // silently without stealing focus or redirecting the operator's active tab.
+  if (browserContext && typeof browserContext.newPage === 'function') {
+    try {
+      targetPage = await browserContext.newPage();
+      isDedicatedBackgroundPage = true;
+      console.log('[Cookie Warmer] Running in silent offscreen background page');
+    } catch (e) {
+      console.warn('[Cookie Warmer] Falling back to default page:', e.message);
+      targetPage = page;
+    }
+  }
 
   try {
-    // NOTE: used to check a 'oserus_cookie_warmer_complete' localStorage flag
-    // here via page.goto('about:blank') + page.evaluate(). Chromium throws
-    // SecurityError reading localStorage on about:blank's opaque origin —
-    // that crashed this script AND stranded the page on about:blank for
-    // every script that ran after it (they inherit whatever page this one
-    // leaves behind). This script's run_mode is 'once' in
-    // model_launch_scripts, so the orchestrator (script-executor.js,
-    // checking cdp_script_executions) already skips re-running it — no
-    // in-script "already done" check is needed.
     const sites = [
       { name: 'Google',     url: 'https://www.google.com' },
       { name: 'Amazon',     url: 'https://www.amazon.com' },
@@ -65,27 +72,27 @@ async function execute(nativeConnection, context) {
     for (let i = 0; i < sites.length; i++) {
       const site = sites[i];
       try {
-        console.log(`[Cookie Warmer] ${i + 1}/${sites.length}: Visiting ${site.name}...`);
+        console.log(`[Cookie Warmer] ${i + 1}/${sites.length}: Background visiting ${site.name}...`);
 
-        await page.goto(site.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await targetPage.goto(site.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
-        await sleep(800 + Math.random() * 1200);
+        await sleep(600 + Math.random() * 800);
 
-        await page.evaluate(() => {
+        await targetPage.evaluate(() => {
           window.scrollBy(0, 300 + Math.random() * 400);
         });
 
-        await sleep(1500 + Math.random() * 2000);
+        await sleep(800 + Math.random() * 1200);
 
         visited.push(site.name);
-        console.log(`[Cookie Warmer] ✅ ${site.name} visited`);
+        console.log(`[Cookie Warmer] ✅ ${site.name} visited (background)`);
       } catch (e) {
         console.error(`[Cookie Warmer] ❌ ${site.name} failed:`, e.message);
         failed.push({ name: site.name, url: site.url, error: e.message });
       }
     }
 
-    console.log(`[Cookie Warmer] ✅ Complete: ${visited.length}/${sites.length} sites visited`);
+    console.log(`[Cookie Warmer] ✅ Complete: ${visited.length}/${sites.length} sites visited in background`);
 
     return {
       success: true,
@@ -94,8 +101,17 @@ async function execute(nativeConnection, context) {
       failed: failed.length > 0 ? failed : undefined,
     };
   } catch (error) {
-    console.error('[Cookie Warmer] ❌ Failed:', error.message);
+    console.error('[Cookie Warmer] ❌ Background warm-up failed:', error.message);
     throw error;
+  } finally {
+    if (isDedicatedBackgroundPage && targetPage && !targetPage.isClosed()) {
+      try {
+        await targetPage.close();
+        console.log('[Cookie Warmer] Background worker page closed cleanly');
+      } catch (closeErr) {
+        console.warn('[Cookie Warmer] Non-fatal close error:', closeErr.message);
+      }
+    }
   }
 }
 

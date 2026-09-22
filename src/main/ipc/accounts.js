@@ -215,16 +215,35 @@ function register(ipcMain) {
 
   ipcMain.handle('accounts:create', (_e, args) => {
     try {
-      const { token, profileId, platform, username, password, email, emailPassword, status, proxyId, notes, userAgent, osProfile, teamId } = args;
+      const { token, profileId, platform, platformId, username, password, email, emailPassword, status, proxyId, notes, userAgent, osProfile, teamId } = args;
       const user = userFromToken(token);
       if (!user) throw new Error('Not authenticated');
       if (!canAccessProfile(user, profileId)) throw new Error('Not authorized');
-      const plat = platform || 'reddit';
+
+      let plat = platform;
+      if (!plat && platformId) {
+        const pRow = getDb().prepare('SELECT key FROM platforms WHERE id = ? OR key = ?').get(platformId, platformId);
+        plat = pRow ? pRow.key : 'onlyfans';
+      }
+      plat = plat || 'reddit';
+
       const platRow = getDb().prepare('SELECT key FROM platforms WHERE key = ?').get(plat);
       if (!platRow) throw new Error('Invalid platform');
+
+      const cleanUser = String(username || '').trim().replace(/^[u@]\//, '').replace(/^@/, '');
+      if (!cleanUser) throw new Error('Username is required');
+
+      // Duplicate check (WF-10 Step 5)
+      const existing = getDb().prepare(
+        'SELECT id FROM reddit_accounts WHERE profile_id = ? AND platform = ? AND LOWER(username) = LOWER(?)'
+      ).get(profileId, plat, cleanUser);
+      if (existing) {
+        return { ok: false, error: 'account already linked' };
+      }
+
       const os = ['desktop', 'android', 'ios'].includes(osProfile) ? osProfile : 'desktop';
       ensureAccountMigrations();
-      const partitionKey = `${plat}-${profileId}-${username.toLowerCase().replace(/[^a-z0-9_-]/g, '')}-${Date.now()}`;
+      const partitionKey = `${plat}-${profileId}-${cleanUser.toLowerCase().replace(/[^a-z0-9_-]/g, '')}-${Date.now()}`;
       const info = getDb()
         .prepare(
           `INSERT INTO reddit_accounts
@@ -232,8 +251,8 @@ function register(ipcMain) {
            VALUES (?,?,?,?,?,?,?,?,?,?,?)`
         )
         .run(
-          profileId, plat, username, partitionKey,
-          email || null, status || 'warming', proxyId || null, notes || null, userAgent || null, os,
+          profileId, plat, cleanUser, partitionKey,
+          email || null, status || 'ready', proxyId || null, notes || null, userAgent || null, os,
           teamId || null,
         );
       if (password) {
@@ -244,7 +263,7 @@ function register(ipcMain) {
         credentialVaultSet('email_password', info.lastInsertRowid, emailPassword);
         if (teamId) setSharedCredential(teamId, info.lastInsertRowid, 'email_password', emailPassword, user.id).catch(() => {});
       }
-      log(user, 'account.create', 'account', info.lastInsertRowid, `${plat} u/${username}`);
+      log(user, 'account.create', 'account', info.lastInsertRowid, `${plat} u/${cleanUser}`);
 
       return { ok: true, id: info.lastInsertRowid, partitionKey };
     } catch (err) {
@@ -252,44 +271,75 @@ function register(ipcMain) {
     }
   });
 
-  ipcMain.handle('accounts:update', (_e, { token, accountId, updates }) => {
+  // WF-11: Rotate Account Password (safeStorage overwrite)
+  ipcMain.handle('accounts:updatePassword', (_e, { token, accountId, password, teamId }) => {
     try {
+      const user = userFromToken(token);
+      if (!user) throw new Error('Not authenticated');
+      if (teamId && user.team_id !== teamId && user.role !== 'owner' && user.role !== 'admin') {
+        throw new Error('Not authorized for this team');
+      }
+      const acct = getDb().prepare('SELECT * FROM reddit_accounts WHERE id = ?').get(accountId);
+      if (!acct) throw new Error('Account not found');
+      if (!canAccessProfile(user, acct.profile_id)) throw new Error('Not authorized for this profile');
+
+      if (password) {
+        credentialVaultSet('account_password', accountId, password);
+        if (acct.team_id) setSharedCredential(acct.team_id, accountId, 'account_password', password, user.id).catch(() => {});
+      } else {
+        credentialVaultDelete('account_password', accountId);
+        if (acct.team_id) deleteSharedCredential(acct.team_id, accountId, 'account_password').catch(() => {});
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('accounts:update', (_e, args) => {
+    try {
+      const { token, accountId, updates = {}, status, teamId } = args;
       const user = userFromToken(token);
       if (!user) throw new Error('Not authenticated');
       const acct = getDb().prepare('SELECT * FROM reddit_accounts WHERE id = ?').get(accountId);
       if (!acct) throw new Error('Account not found');
       if (!canAccessProfile(user, acct.profile_id)) throw new Error('Not authorized');
+      if (teamId && user.team_id !== teamId && user.role !== 'owner' && user.role !== 'admin') {
+        throw new Error('Not authorized for this team');
+      }
 
-      // Flipping os_profile invalidates the persisted fingerprint —
-      // loadOrCreate sees the mismatch and regenerates next session prep.
+      // Merge direct status if passed (WF-12)
+      const effectiveUpdates = { ...updates };
+      if (status !== undefined) effectiveUpdates.status = status;
+
       const allowed = ['status', 'proxy_id', 'notes', 'email', 'os_profile'];
       const sets = [];
       const params = [];
       for (const key of allowed) {
-        if (updates[key] !== undefined) {
+        if (effectiveUpdates[key] !== undefined) {
           sets.push(`${key} = ?`);
-          params.push(updates[key]);
+          params.push(effectiveUpdates[key]);
         }
       }
-      if (updates.password !== undefined) {
-        if (updates.password) {
-          credentialVaultSet('account_password', accountId, updates.password);
-          if (acct.team_id) setSharedCredential(acct.team_id, accountId, 'account_password', updates.password, user.id).catch(() => {});
+      if (effectiveUpdates.password !== undefined) {
+        if (effectiveUpdates.password) {
+          credentialVaultSet('account_password', accountId, effectiveUpdates.password);
+          if (acct.team_id) setSharedCredential(acct.team_id, accountId, 'account_password', effectiveUpdates.password, user.id).catch(() => {});
         } else {
           credentialVaultDelete('account_password', accountId);
           if (acct.team_id) deleteSharedCredential(acct.team_id, accountId, 'account_password').catch(() => {});
         }
       }
-      if (updates.emailPassword !== undefined) {
-        if (updates.emailPassword) {
-          credentialVaultSet('email_password', accountId, updates.emailPassword);
-          if (acct.team_id) setSharedCredential(acct.team_id, accountId, 'email_password', updates.emailPassword, user.id).catch(() => {});
+      if (effectiveUpdates.emailPassword !== undefined) {
+        if (effectiveUpdates.emailPassword) {
+          credentialVaultSet('email_password', accountId, effectiveUpdates.emailPassword);
+          if (acct.team_id) setSharedCredential(acct.team_id, accountId, 'email_password', effectiveUpdates.emailPassword, user.id).catch(() => {});
         } else {
           credentialVaultDelete('email_password', accountId);
           if (acct.team_id) deleteSharedCredential(acct.team_id, accountId, 'email_password').catch(() => {});
         }
       }
-      if (sets.length === 0 && !updates.cloakProfileOverride) return { ok: true };
+      if (sets.length === 0 && !effectiveUpdates.cloakProfileOverride) return { ok: true };
       params.push(accountId);
 
       if (sets.length > 0) {
@@ -302,7 +352,7 @@ function register(ipcMain) {
       }
 
       // Handle cloak_profile_override separately in account_browser_settings table
-      if (updates.cloakProfileOverride !== undefined) {
+      if (effectiveUpdates.cloakProfileOverride !== undefined) {
         const existing = getDb().prepare(`
           SELECT account_id FROM account_browser_settings WHERE account_id = ?
         `).get(accountId);
@@ -310,11 +360,11 @@ function register(ipcMain) {
         if (existing) {
           getDb().prepare(`
             UPDATE account_browser_settings SET cloak_profile_override = ? WHERE account_id = ?
-          `).run(updates.cloakProfileOverride, accountId);
+          `).run(effectiveUpdates.cloakProfileOverride, accountId);
         } else {
           getDb().prepare(`
             INSERT INTO account_browser_settings (account_id, cloak_profile_override) VALUES (?, ?)
-          `).run(accountId, updates.cloakProfileOverride);
+          `).run(accountId, effectiveUpdates.cloakProfileOverride);
         }
       }
 
@@ -353,6 +403,7 @@ function register(ipcMain) {
     }
   });
 
+  // WF-13: Unlink Account and purge safeStorage credentials
   ipcMain.handle('accounts:delete', (_e, { token, accountId, teamId }) => {
     try {
       const user = userFromToken(token);
@@ -360,8 +411,17 @@ function register(ipcMain) {
       const acct = getDb().prepare('SELECT * FROM reddit_accounts WHERE id = ?').get(accountId);
       if (!acct) throw new Error('Account not found');
       if (!canAccessProfile(user, acct.profile_id)) throw new Error('Not authorized');
-      if (teamId && acct.team_id !== teamId) throw new Error('Not authorized');
+      if (teamId && acct.team_id !== teamId && user.role !== 'owner' && user.role !== 'admin') {
+        throw new Error('Not authorized');
+      }
       getDb().prepare('DELETE FROM reddit_accounts WHERE id = ?').run(accountId);
+      // Clean up safeStorage key
+      try {
+        credentialVaultDelete('account_password', accountId);
+        credentialVaultDelete('email_password', accountId);
+      } catch (e) {
+        console.warn('[accounts] safeStorage key cleanup skipped:', e?.message);
+      }
       log(user, 'account.delete', 'account', accountId, `${acct.platform} u/${acct.username}`);
       return { ok: true };
     } catch (err) {

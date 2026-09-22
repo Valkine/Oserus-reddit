@@ -76,6 +76,7 @@ const registerCloudHandlers = require('./ipc/cloud');
 const registerDeviceHandlers = require('./ipc/devices');
 const registerPlatformHandlers = require('./ipc/platforms');
 const registerLicenseHandlers = require('./ipc/license');
+const registerDeliaHandlers = require('./ipc/delia');
 const registerShiftsHandlers = require('./ipc/shifts');
 const coordinator = require('./services/coordinator');
 const oserusBrowser = require('./browser');
@@ -546,6 +547,7 @@ app.whenReady().then(async () => {
   registerDeviceHandlers(ipcMain);
   registerPlatformHandlers(ipcMain);
   registerLicenseHandlers(ipcMain);
+  registerDeliaHandlers(ipcMain);
   registerShiftsHandlers(ipcMain);
 
   // Oserus Browser (v0.62 soft-cut: optional, launched on demand from

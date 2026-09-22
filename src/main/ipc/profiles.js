@@ -17,6 +17,9 @@ function ensureProfileMigrations() {
     if (!cols.some((c) => c.name === 'main_email')) {
       getDb().exec('ALTER TABLE model_profiles ADD COLUMN main_email TEXT');
     }
+    if (!cols.some((c) => c.name === 'status')) {
+      getDb().exec("ALTER TABLE model_profiles ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+    }
   } catch {}
   try {
     getDb().exec(`
@@ -59,7 +62,7 @@ function register(ipcMain) {
         .prepare(
           `SELECT p.*, u.display_name AS assigned_to_name, u.username AS assigned_to_username,
                   (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id) AS account_count,
-                  (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status = 'ready') AS ready_count
+                  (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status IN ('ready', 'active')) AS ready_count
            FROM model_profiles p
            LEFT JOIN users u ON u.id = p.assigned_user_id
            WHERE ${whereSql}
@@ -71,7 +74,13 @@ function register(ipcMain) {
         r.members = listAssignments(r.id);
         try {
           r.accounts = getDb().prepare(
-            'SELECT id, username, platform, status FROM reddit_accounts WHERE profile_id = ? ORDER BY platform, username'
+            `SELECT a.id, a.username, a.platform, a.status,
+                    COALESCE(p.label, a.platform) AS platform_name,
+                    COALESCE(p.color, '#6366f1') AS brand_color
+             FROM reddit_accounts a
+             LEFT JOIN platforms p ON p.key = a.platform
+             WHERE a.profile_id = ?
+             ORDER BY a.platform, a.username`
           ).all(r.id);
         } catch {
           r.accounts = [];
@@ -236,9 +245,36 @@ function register(ipcMain) {
 
   ipcMain.handle('profiles:update', async (_e, { token, profileId, updates, teamId }) => {
     try {
-      requireOwnerOrAdmin(token);
-      const allowed = ['name', 'assigned_user_id', 'niche', 'brand_voice', 'notes', 'avatar_color', 'proxy_id', 'main_email'];
+      const user = userFromToken(token);
+      if (!user) throw new Error('Not authenticated');
+
+      const isOwnerOrAdmin = user.role === 'owner' || user.role === 'admin';
+      const current = getDb().prepare('SELECT * FROM model_profiles WHERE id = ?').get(profileId);
+      if (!current) throw new Error('Profile not found');
+
+      // Authorization: owner, admin, or the assigned manager of this profile
+      const isAssignedManager = current.assigned_user_id === user.id;
+      if (!isOwnerOrAdmin && !isAssignedManager) {
+        throw new Error('Not authorized to update this model');
+      }
+
+      const allowed = ['name', 'assigned_user_id', 'niche', 'brand_voice', 'notes', 'avatar_color', 'proxy_id', 'main_email', 'status'];
       const sets = [], params = [];
+
+      // Validate model lifecycle status transitions if status is changing
+      if (updates.status !== undefined) {
+        const nextStatus = updates.status;
+        if (!['active', 'paused', 'archived'].includes(nextStatus)) {
+          throw new Error('Invalid status: must be active, paused, or archived');
+        }
+        const curStatus = current.status || 'active';
+        if (curStatus === 'archived' && (nextStatus === 'active' || nextStatus === 'paused')) {
+          if (!isOwnerOrAdmin) {
+            throw new Error('Archived is terminal unless user role is owner or admin.');
+          }
+        }
+      }
+
       for (const k of allowed) {
         if (updates[k] !== undefined) {
           sets.push(`${k} = ?`);
@@ -275,22 +311,14 @@ function register(ipcMain) {
         }
       }
 
-      // The model's proxy is what CloakManager actually uses (its one
-      // shared browser profile has one proxy, same as it has one
-      // fingerprint) — if the proxy changed on a model already in
-      // CloakManager mode, push that to CloakManager too, not just the DB.
       let reprovisionForProxy = false;
       if (!switchingToCm && updates.proxy_id !== undefined) {
-        const current = getDb().prepare('SELECT browser_mode FROM model_profiles WHERE id = ?').get(profileId);
-        reprovisionForProxy = current?.browser_mode === 'cloakmanager';
+        const curMode = getDb().prepare('SELECT browser_mode FROM model_profiles WHERE id = ?').get(profileId);
+        reprovisionForProxy = curMode?.browser_mode === 'cloakmanager';
       }
 
       let cmProfile;
       if (switchingToCm || reprovisionForProxy) {
-        // Actually provisions (or repairs) the model's shared CloakManager
-        // profile via the CM API, independent of whether this model has any
-        // accounts yet, on any platform — the account-existence dependency
-        // that used to leave a model "configured" but not really launchable.
         const { ensureModelCmProfile } = require('./cloakmanager');
         cmProfile = await ensureModelCmProfile(profileId, {});
       }
@@ -315,6 +343,62 @@ function register(ipcMain) {
           .run(assignedUserId || null, profileId);
       }
       return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // WF-14: Assign User to Model in profile_assignments
+  ipcMain.handle('profiles:assignUser', (_e, { token, profileId, userId, role, teamId }) => {
+    try {
+      const user = userFromToken(token);
+      if (!user) throw new Error('Not authenticated');
+      if (teamId && user.team_id !== teamId && user.role !== 'owner' && user.role !== 'admin') {
+        throw new Error('Not authorized for this team');
+      }
+      const isOwnerOrAdmin = user.role === 'owner' || user.role === 'admin';
+      const current = getDb().prepare('SELECT * FROM model_profiles WHERE id = ?').get(profileId);
+      if (!current) throw new Error('Profile not found');
+      if (!isOwnerOrAdmin && current.assigned_user_id !== user.id) {
+        throw new Error('Not authorized to assign users to this model');
+      }
+      const targetUser = getDb().prepare('SELECT id, team_id FROM users WHERE id = ?').get(userId);
+      if (!targetUser) throw new Error('User not found');
+      if (teamId && targetUser.team_id && targetUser.team_id !== teamId && !isOwnerOrAdmin) {
+        throw new Error('Target user is not in the same team');
+      }
+      const validRoles = ['manager', 'chatter', 'coordinator', 'marketing'];
+      const targetRole = validRoles.includes(role) ? role : 'chatter';
+
+      getDb().prepare(`
+        INSERT INTO profile_assignments (profile_id, user_id, role)
+        VALUES (?, ?, ?)
+        ON CONFLICT(profile_id, user_id) DO UPDATE SET role = excluded.role
+      `).run(profileId, userId, targetRole);
+
+      return { ok: true, members: listAssignments(profileId) };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // WF-15: Unassign User from Model in profile_assignments
+  ipcMain.handle('profiles:unassignUser', (_e, { token, profileId, userId, teamId }) => {
+    try {
+      const user = userFromToken(token);
+      if (!user) throw new Error('Not authenticated');
+      if (teamId && user.team_id !== teamId && user.role !== 'owner' && user.role !== 'admin') {
+        throw new Error('Not authorized for this team');
+      }
+      const isOwnerOrAdmin = user.role === 'owner' || user.role === 'admin';
+      const current = getDb().prepare('SELECT * FROM model_profiles WHERE id = ?').get(profileId);
+      if (!current) throw new Error('Profile not found');
+      if (!isOwnerOrAdmin && current.assigned_user_id !== user.id) {
+        throw new Error('Not authorized to unassign users from this model');
+      }
+
+      getDb().prepare('DELETE FROM profile_assignments WHERE profile_id = ? AND user_id = ?').run(profileId, userId);
+      return { ok: true, members: listAssignments(profileId) };
     } catch (err) {
       return { ok: false, error: err.message };
     }

@@ -1,9 +1,9 @@
 # OSERUS MANAGEMENT — COMPLETE BOT-TO-BOT TECHNICAL HANDOFF & UI SHOWCASE (HANDOFF.md)
 
 *The Definitive Technical Architecture, Feature Blueprint, and Visual UI Showcase for AI Agents and Systems Engineers.*  
-*Current System Version: v0.86.21+ · Last Updated: September 2026*  
+*Current System Version: v0.86.22 · Last Updated: September 2026*  
 *Repository: Valkine/Oserus-reddit (mirrored from Gee2424/Oserus-reddit)*  
-*Platform: Windows x64 (Electron 32 / Node 22 / Better-SQLite3 / React 18 / Playwright CDP)*
+*Platform: Windows x64 (Electron 32 / Node 22 / Native C++ x64 / Better-SQLite3 / React 18 / Playwright CDP)*
 
 ---
 
@@ -20,6 +20,8 @@
    - 3.7 [Scheduler Pro & Multi-Account Queue](#37-scheduler-pro--multi-account-queue)
    - 3.8 [Dual-Timezone Shift Scheduling Engine & Team Hub](#38-dual-timezone-shift-scheduling-engine--team-hub)
    - 3.9 [CloakManager Antidetect Engine & Network Security](#39-cloakmanager-antidetect-engine--network-security)
+   - 3.10 [Delia Development Native C++ Key System & Anti-Decompilation Loader](#310-delia-development-native-c-key-system--anti-decompilation-loader)
+   - 3.11 [Background Cookie Warmer & Chrome Antidetect Browser Shell](#311-background-cookie-warmer--chrome-antidetect-browser-shell)
 4. [Possible UI Showcase & High-Fidelity Wireframes](#4-possible-ui-showcase--high-fidelity-wireframes)
    - 4.1 [UI Showcase: Executive Dashboard](#41-ui-showcase-executive-dashboard)
    - 4.2 [UI Showcase: High-Density Models Directory](#42-ui-showcase-high-density-models-directory)
@@ -93,31 +95,37 @@ Any AI bot or developer modifying this repository **MUST** respect these archite
   - Filter pills: `All Sales`, `Tips` (💚), `Chatting Sales` (PPV unlocks 💙), `Pay Sales` (custom requests 💜).
   - Shows platform badge (OnlyFans 🔞, Fansly 💙, Fanvue ✨), model name, fan handle, transaction amount (`+$120.00`), and relative timestamp.
 
-### 3.2 High-Density Models Directory (`Profiles.jsx`)
-- **Single Master Table:** High-density spreadsheet-style table with zero lag.
-- **Columns:** Model Name & Avatar, Niche/Category, Accounts Pill Badges, Model Dedicated Proxy, Assigned Team Members, Status Indicator, and Row Action Buttons.
-- **Row Actions:**
-  - `[ ▶ Open Browser ]`: Launches the isolated model antidetect environment. Disabled with tooltip if `account_count === 0`.
-  - `[ Manage → ]`: Direct jump to ModelDetail for deep account and credential management.
-  - `[ ✏ Edit ]`: Opens the Model Settings Modal (Proxy, Manager, Avatar Color, Brand Voice, Worker Assignments).
-  - `[ 🗑 Delete ]`: Direct deletion with confirmation modal.
-- **CloakManager Engine Health Pill:** Live status of the local CDP binary (`Engine Online` / `Engine Unavailable` with retry trigger).
+### 3.2 High-Density Models Directory (`Profiles.jsx`, `ModelRow.jsx`, `ModelSettingsModal.jsx`, `DeleteModelModal.jsx`)
+- **Modular Component Architecture:**
+  - `Profiles.jsx`: High-level controller with search filtering, status tabs (`All`, `Active`, `Paused`, `Archived`), and empty states.
+  - `ModelRow.jsx`: Memoized table row with initials avatar (deterministic color hash), niche em-dash fallback, collapsible platform account pills with brand colors, truncated assigned user list, and status badges (`active` | `paused` | `archived`).
+  - `ModelSettingsModal.jsx`: Lifecycle state machine controller (`active <-> paused`, `active/paused -> archived`, terminal archive protection unless owner/admin), proxy assignment, brand voice configuration, and team member assignments.
+  - `DeleteModelModal.jsx`: Safe archiving dialog with hard delete option for elevated roles.
+- **Strict Row Actions Invariant:**
+  - ZERO "Launch Browser" action on directory rows. Row actions are strictly:
+    - `[ Manage ]`: Direct navigation to Model Detail for granular platform and credential management.
+    - `[ Edit ]`: Opens `ModelSettingsModal`.
+    - `[ Delete ]`: Opens `DeleteModelModal`.
+- **Model Lifecycle State Machine:**
+  - `active` ↔ `paused`: Reversible toggle for temporary operational halts.
+  - `active` / `paused` → `archived`: Soft deletion preserving creator audit trail and past earnings data.
+  - `archived` → terminal protection: Can only be transitioned or hard deleted by Agency Owner or Admin.
 
-### 3.3 Fast Model & Accounts Onboarding Wizard (`Profiles.jsx`)
-- **Dual-Mode Setup Drawer:**
-  - **🪄 Guided Mode:**
-    - Model Name, Niche, Primary Manager, Model Dedicated Proxy, Browser Engine (`CloakManager` vs `Electron Standard`).
-    - Designated Platform Accounts Grid with 1-click quick-add buttons: `+OnlyFans`, `+Fansly`, `+Fanvue`, `+Reddit`, `+X`, `+IG`, `+TikTok`.
-    - Inline username and password fields (passwords automatically stored in DPAPI encrypted vault).
-  - **📋 Bulk Paste Mode:**
-    - Textarea accepting multi-line inputs: `platform:username[:password]` or comma-separated.
-    - Real-time regex parser generating live visual chips previewing parsed accounts before saving.
+### 3.3 Fast Model & Accounts Onboarding Wizard (`CreateModelDrawer.jsx`, `AccountRowInput.jsx`, `BulkPasteParser.jsx`)
+- **Dual-Tab Architecture:**
+  - **🪄 Guided Tab (`AccountRowInput.jsx`):**
+    - Model Name, Niche, Primary Manager, Model Dedicated Proxy, Browser Engine.
+    - Designated Platform Accounts Grid with repeatable `AccountRowInput` components.
+    - Quick-add shortcut buttons: `+OnlyFans`, `+Fansly`, `+Fanvue`, `+Reddit`, `+X`, `+IG`, `+TikTok`.
+    - "Create without accounts" option for quick model profile stubs.
+  - **📋 Bulk Paste Tab (`BulkPasteParser.jsx`):**
+    - Multi-line textarea accepting standard industry format: `platform_slug:username[:password]`.
+    - Real-time syntax parser displaying instant green parsed chips and red syntax error callouts for invalid lines.
 - **Atomic Backend Transaction (`profiles:createWithAccounts`):**
-  - Inserts row into `model_profiles`.
-  - Inserts all accounts into `reddit_accounts`.
-  - Stores encrypted passwords in `credential_vault`.
-  - Generates CloakManager antidetect profile with hardware fingerprint.
-  - Returns `launch-ready` model immediately.
+  - Inserts row into `model_profiles` with initial `active` status.
+  - Inserts designated accounts into `reddit_accounts`.
+  - Encrypts account passwords using Windows DPAPI / Electron `safeStorage`.
+  - Generates CloakManager antidetect fingerprint profile.
 
 ### 3.4 Actionable Platforms Directory & 1-Click Presets (`Platforms.jsx`)
 - **1-Click Popular Creator Presets Catalog:**
@@ -162,6 +170,37 @@ Any AI bot or developer modifying this repository **MUST** respect these archite
   - **CloakManager Antidetect:** Hardened Chromium binary with canvas noise, WebGL vendor masking, audio context randomization, font fingerprint spoofing, and WebRTC public IP leak prevention.
   - **Electron Standard:** Lightweight native `WebContentsView` with partition isolation.
 - **Proxy Bridges:** SOCKS5 / HTTP upstream chaining with automatic authentication injection.
+
+### 3.10 Delia Development Native C++ Key System & Anti-Decompilation Loader
+- **Zero Plaintext Reverse Engineering Protection:**
+  - Loader is compiled strictly in **Native C++ (x86/x64)** (`build/OserusLoader.exe`) using MSVC optimization `/O2`.
+  - Compile-time byte-level string obfuscation (`0x5A` rotating XOR cipher) guarantees **ZERO plaintext endpoints, JSON keys, or API tokens** exist in the compiled binary image or `.rdata` section.
+  - Passes binary scan validation with 0 matches for `deliadevelopment.com`, `del_sec_`, `deviceId`, or `authSig`.
+- **Hardware-Bound ID (HWID):**
+  - Synthesizes CPUID signature + Motherboard SMBIOS Serial (`wmic baseboard get serialnumber`) + Windows Registry `MachineGuid`.
+  - Cryptographically hashed via SHA-256 (`SimpleSha256`).
+- **WinHTTP Activation Pipeline:**
+  - Direct HTTPS handshake with `https://deliadevelopment.com/api/v1/license/activate`.
+  - Authenticates with Delia Client API Key `del_sec_2bd77a_15279f204d4545804839060d24aa930122de1d1e7a`.
+  - Verifies status, expiration, and extracts HMAC/cryptographic signature (`authSig`).
+- **Encrypted Local DPAPI Caching:**
+  - Valid licenses are sealed using Windows DPAPI (`CryptProtectData`) to `%APPDATA%\Oserus\delia.lic`.
+  - Subsequent app launches verify the cached key seamlessly without user prompts.
+- **Native Win32 Activation Dialog:**
+  - If unactivated, displays a native Win32 dialog (`DeliaAuthDialog`) featuring HWID copy button and input field.
+- **Session Signature Handshake:**
+  - Upon activation, loader injects `DELIA_AUTH_SIG`, `DELIA_HWID`, and `DELIA_LICENSE` environment variables into the spawned child process before launching `Oserus Management.exe`.
+
+### 3.11 Background Cookie Warmer & Chrome Antidetect Browser Shell
+- **Background Cookie Warmer (`cookie-warmer.js`):**
+  - Executes completely offscreen on an isolated background page (`await browserContext.newPage()`).
+  - Never steals focus, never interrupts active worker tabs, and never redirects user navigation.
+  - Automatically and cleanly closes the background tab upon session completion.
+- **Chrome Antidetect Browser Shell (`BrowserShell.jsx`):**
+  - Styled after modern Chrome and AdsPower dark theme standards (`#202124` tab bar, `#292a2d` address bar).
+  - Trapezoid rounded tabs with favicon and close buttons.
+  - Security lock badge `🔒` indicating isolated TLS / proxy encryption.
+  - Quick bookmark star `☆` and circular button hover treatments.
 
 ---
 
@@ -370,7 +409,14 @@ The application operates on `better-sqlite3` in WAL mode:
 | `platforms:list` | None | `{ ok, platforms }` | Returns all platforms with `account_count` calculated. |
 | `platforms:create` | `{ token, platform }` | `{ ok, id }` | Registers a built-in preset or custom platform. |
 | `platforms:delete` | `{ token, platformId }` | `{ ok }` | Removes custom platform. |
-| `accounts:create` | `{ token, profileId, platform, username, password, proxyId, teamId }` | `{ ok, id }` | Attaches single account to model with encrypted password. |
+| `accounts:create` | `{ token, profileId, platform, username, password, proxyId, teamId }` | `{ ok, id }` | WF-10: Attaches single account to model with duplicate check and encrypted password. |
+| `accounts:updatePassword` | `{ token, accountId, password, teamId }` | `{ ok }` | WF-11: Overwrites existing account password in DPAPI encrypted vault. |
+| `accounts:update` | `{ token, accountId, updates, teamId }` | `{ ok }` | WF-12: Updates account status (`active` \| `paused`) or proxy. |
+| `accounts:delete` | `{ token, accountId, teamId }` | `{ ok }` | WF-13: Deletes account row and purges password from safeStorage. |
+| `profiles:assignUser` | `{ token, profileId, userId, role, teamId }` | `{ ok }` | WF-14: Assigns worker or chatter to model profile. |
+| `profiles:unassignUser` | `{ token, profileId, userId, teamId }` | `{ ok }` | WF-15: Removes worker or chatter assignment from model profile. |
+| `delia:getStatus` | None | `{ active, licenseKey, hwid, source }` | Checks in-app Delia licensing status and hardware ID. |
+| `delia:activate` | `{ licenseKey }` | `{ ok, active, authSig, error }` | Activates Delia license against `deliadevelopment.com` API. |
 | `oserus-browser:openForModel` | `{ profileId }` | `{ ok, cdpPort }` | Launches isolated model browser session (enforces Launch Guard). |
 | `license:getTransactions` | `{ token, teamId }` | `{ ok, transactions }` | Retrieves creator tips, PPV unlocks, and sales. |
 | `license:addTransaction` | `{ token, transaction }` | `{ ok, id }` | Records live OnlyFans/Fansly/Fanvue sale. |

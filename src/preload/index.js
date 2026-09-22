@@ -48,6 +48,8 @@ const api = {
     addMember: (data) => ipcRenderer.invoke('profiles:addMember', data),
     removeMember: (data) => ipcRenderer.invoke('profiles:removeMember', data),
     setMemberRole: (data) => ipcRenderer.invoke('profiles:setMemberRole', data),
+    assignUser: (data) => ipcRenderer.invoke('profiles:assignUser', data),
+    unassignUser: (data) => ipcRenderer.invoke('profiles:unassignUser', data),
   },
   accounts: {
     listForProfile: (data) => ipcRenderer.invoke('accounts:listForProfile', data),
@@ -55,6 +57,7 @@ const api = {
     create: (data) => ipcRenderer.invoke('accounts:create', data),
     bulkCreate: (data) => ipcRenderer.invoke('accounts:bulkCreate', data),
     update: (data) => ipcRenderer.invoke('accounts:update', data),
+    updatePassword: (data) => ipcRenderer.invoke('accounts:updatePassword', data),
     setStarred: (data) => ipcRenderer.invoke('accounts:setStarred', data),
     bulkSetProxy: (data) => ipcRenderer.invoke('accounts:bulkSetProxy', data),
     bulkDelete: (data) => ipcRenderer.invoke('accounts:bulkDelete', data),
@@ -87,6 +90,10 @@ const api = {
     create: (data) => ipcRenderer.invoke('platforms:create', data),
     update: (data) => ipcRenderer.invoke('platforms:update', data),
     delete: (data) => ipcRenderer.invoke('platforms:delete', data),
+  },
+  delia: {
+    getStatus: () => ipcRenderer.invoke('delia:getStatus'),
+    activate: (data) => ipcRenderer.invoke('delia:activate', data),
   },
   // Management Hub backend — per-user productivity metrics + drill-down.
   team: {

@@ -8,6 +8,8 @@ release/
 .env.local
 *.sqlite
 *.db
+*.obj
+build/*.obj
 # Local-only CloakManager vendor reference (not distributed with the repo)
 OSERUS-INTEGRATION-spec.md
 api_and_websockets.md
