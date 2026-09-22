@@ -1,7 +1,7 @@
 # OSERUS MANAGEMENT — MASTER ARCHITECTURE & DESIGN SPECIFICATION (DESIGN.md)
 *The definitive product, architectural, operational, and aesthetic blueprint for Oserus Management.*  
 *Target Audience: AI Engineering Agents, System Architects, Full-Stack Developers, and Human Operators.*  
-*Current System Version: v0.86.18+ · Last Updated: September 2026*
+*Current System Version: v0.86.19+ · Last Updated: September 2026*
 
 ---
 
