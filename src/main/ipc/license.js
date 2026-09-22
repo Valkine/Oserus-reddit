@@ -94,6 +94,19 @@ function ensureLicenseTables() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(platform, month_period)
     );
+
+    CREATE TABLE IF NOT EXISTS creator_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      platform TEXT NOT NULL,
+      profile_name TEXT NOT NULL,
+      fan_handle TEXT NOT NULL,
+      type TEXT NOT NULL,
+      type_label TEXT NOT NULL,
+      amount REAL NOT NULL,
+      net_amount REAL NOT NULL,
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Seed default active monthly key if no license row exists
@@ -129,6 +142,31 @@ function ensureLicenseTables() {
       VALUES (?, ?, ?, ?, ?)
     `).run(s.platform, month, s.gross, s.net, s.subs);
   }
+
+  // Seed initial creator transactions if empty
+  try {
+    const existingTx = db.prepare('SELECT COUNT(*) AS count FROM creator_transactions').get();
+    if (!existingTx || existingTx.count === 0) {
+      const seedTxs = [
+        { platform: 'onlyfans', profile_name: 'Luna',  fan_handle: '@vip_marcus',    type: 'tip',           type_label: 'Whale Tip',        amount: 75.00,  net: 60.00, desc: 'Wall post tip + photo request', minsAgo: 4 },
+        { platform: 'fansly',   profile_name: 'Chloe', fan_handle: '@austin_tx99',   type: 'chatting_sale', type_label: 'PPV Chat Unlock',  amount: 120.00, net: 96.00, desc: 'Locked video message (Chatting)', minsAgo: 16 },
+        { platform: 'onlyfans', profile_name: 'Luna',  fan_handle: '@mark_finance',  type: 'custom_pay',    type_label: 'Custom Video Pay', amount: 150.00, net: 120.00, desc: '3-min cosplay custom order', minsAgo: 32 },
+        { platform: 'fanvue',   profile_name: 'Mia',   fan_handle: '@dennis_vip',    type: 'tip',           type_label: 'Live Stream Tip',  amount: 50.00,  net: 42.50, desc: 'Stream interaction tip', minsAgo: 50 },
+        { platform: 'onlyfans', profile_name: 'Luna',  fan_handle: '@kevin_b88',     type: 'subscription',  type_label: 'Sub Renewal',      amount: 15.00,  net: 12.00, desc: '1-month VIP subscription', minsAgo: 68 },
+        { platform: 'fansly',   profile_name: 'Chloe', fan_handle: '@crypto_richie', type: 'chatting_sale', type_label: 'PPV Photo Set',   amount: 45.00,  net: 36.00, desc: 'Locked gallery unlock in DMs', minsAgo: 105 },
+        { platform: 'onlyfans', profile_name: 'Luna',  fan_handle: '@joshua_k',      type: 'tip',           type_label: 'Audio Note Tip',   amount: 30.00,  net: 24.00, desc: 'Goodnight audio note tip', minsAgo: 140 },
+        { platform: 'fanvue',   profile_name: 'Mia',   fan_handle: '@alex_london',   type: 'custom_pay',    type_label: 'Custom Photo Pay', amount: 80.00,  net: 68.00, desc: 'Priority photo set pay', minsAgo: 185 },
+        { platform: 'onlyfans', profile_name: 'Luna',  fan_handle: '@whale_hunter',  type: 'tip',           type_label: 'Super Whale Tip',  amount: 250.00, net: 200.00, desc: 'Exclusive VIP tier tip', minsAgo: 230 },
+      ];
+      for (const tx of seedTxs) {
+        const dt = new Date(Date.now() - tx.minsAgo * 60000).toISOString();
+        db.prepare(`
+          INSERT INTO creator_transactions (platform, profile_name, fan_handle, type, type_label, amount, net_amount, description, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(tx.platform, tx.profile_name, tx.fan_handle, tx.type, tx.type_label, tx.amount, tx.net, tx.desc, dt);
+      }
+    }
+  } catch {}
 }
 
 function register(ipcMain) {
@@ -302,6 +340,59 @@ function register(ipcMain) {
       `).run(platform, month, Number(gross) || 0, Number(net) || 0, Number(subscribers) || 0);
 
       return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // Get live creator transactions feed (Tips, Chatting sales, Custom Video Pay, Subscriptions)
+  ipcMain.handle('license:getTransactions', async (_e, { token, limit = 25, type = null }) => {
+    try {
+      const user = userFromToken(token);
+      if (!user) return { ok: false, error: 'Not authenticated' };
+
+      const db = getDb();
+      ensureLicenseTables();
+
+      let sql = 'SELECT * FROM creator_transactions';
+      const params = [];
+      if (type && type !== 'all') {
+        sql += ' WHERE type = ?';
+        params.push(type);
+      }
+      sql += ' ORDER BY created_at DESC LIMIT ?';
+      params.push(Number(limit) || 25);
+
+      const rows = db.prepare(sql).all(...params);
+      return { ok: true, transactions: rows };
+    } catch (err) {
+      return { ok: false, error: err.message, transactions: [] };
+    }
+  });
+
+  // Add a live creator transaction
+  ipcMain.handle('license:addTransaction', async (_e, { token, platform, profileName, fanHandle, type, typeLabel, amount, netAmount, description }) => {
+    try {
+      requireOwnerOrAdmin(token);
+      const db = getDb();
+      ensureLicenseTables();
+
+      const gross = Math.max(0, Number(amount) || 0);
+      const net = Math.max(0, Number(netAmount) || (gross * 0.8));
+      const info = db.prepare(`
+        INSERT INTO creator_transactions (platform, profile_name, fan_handle, type, type_label, amount, net_amount, description, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).run(platform || 'onlyfans', profileName || 'Model', fanHandle || '@fan', type || 'tip', typeLabel || 'Tip', gross, net, description || '');
+
+      // Increment MTD gross earnings for this platform
+      const month = currentMonthPeriod();
+      db.prepare(`
+        UPDATE platform_earnings
+        SET gross_amount = gross_amount + ?, net_amount = net_amount + ?, updated_at = datetime('now')
+        WHERE platform = ? AND month_period = ?
+      `).run(gross, net, platform || 'onlyfans', month);
+
+      return { ok: true, id: info.lastInsertRowid };
     } catch (err) {
       return { ok: false, error: err.message };
     }

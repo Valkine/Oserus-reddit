@@ -254,9 +254,11 @@ When an agency crosses \$250,000 / month in gross creator revenue:
 The agency owner sees a live, real-time telemetry card on the Dashboard:
 - **MTD Gross Revenue**: Large formatted number (e.g. `$34,250.00`).
 - **Active Bracket Badge**: `[ 🔑 Earnings Tier: $30k–$60k/mo ($250/mo) ]`.
-- **Infloww Scale Progress Bar**:
+- **Refined Blended Scale Meter (Anti-Big-Bar Policy)**:
+  - Progress meters must NEVER be rendered as loud, thick 8px-12px orange bars cutting across the card face.
+  - Oserus mandates a sleek 3px micro-track with soft gold-to-emerald glow that blends seamlessly into the card's dark obsidian surface.
   - Below \$250k: Shows percentage progress toward the \$250,000 ceiling.
-  - Above \$250k: Glowing gold-to-emerald gradient bar indicating active 1.0% volume scaling.
+  - Above \$250k: Shows active 1.0% volume scaling rate and over-cap commission metrics.
 - **Platform Breakdown**: OnlyFans (`$24,500`), Fansly (`$6,200`), and Fanvue (`$2,100`).
 
 ---
@@ -296,11 +298,19 @@ A core differentiator of Oserus is its **live telemetry engine**. The workstatio
     `[ 🟢 Sarah on shift · 3h 15m left ]`
   - Eliminates agency owner anxiety over whether night shifts are staffed.
 
-### 7.3 Live Creator Platform Transactions
-- **Transaction Stream**:
+### 7.3 Live Creator Platform Transactions (Recent Activity Feed)
+- **From Database Audits to Real Money**:
+  - Operators do not want technical database audit events (`account.create`, `user.login`) cluttering their Recent Activity.
+  - Recent Activity on the Dashboard is strictly a **Live Creator Sales & Monetization Feed**:
+    - **Tips**: Wall post tips, stream tips, audio note tips (`+$50.00`, `+$75.00`, `+$250.00`).
+    - **Chatting Sales (PPV)**: Locked photo sets and pay-per-view video messages unlocked by fans in DMs (`+$45.00`, `+$120.00`).
+    - **Custom Video Pay**: Custom content orders, priority request pay (`+$80.00`, `+$150.00`).
+    - **Subscriptions**: New subscriber joins and monthly rebill renewals (`+$15.00`).
+- **Real-Time Feed Telemetry**:
   - Live websocket or polling connection to OnlyFans, Fansly, and Fanvue.
-  - Renders live incoming tip alerts (`+$50.00 from @whale_fan on Model Luna`).
+  - Instant transaction item updates with relative time (`just now`, `4m ago`).
   - MTD Gross total increments live with smooth number animation (`CountUp`).
+  - Category filter pills: `All Sales`, `Tips`, `Chatting Sales`, `Pay Sales`.
 
 ### 7.4 Infloww-Style Chatter Collision Avoidance
 - When multiple chatters work on the same model or agency inbox:

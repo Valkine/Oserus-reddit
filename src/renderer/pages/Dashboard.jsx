@@ -34,23 +34,27 @@ export default function DashboardPage({ navigate }) {
   const [licenseData, setLicenseData] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [txFilter, setTxFilter] = useState('all');
   const [launchingId, setLaunchingId] = useState(null);
   const [overview, setOverview] = useState(null);
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      const [lic, prof, o, act] = await Promise.all([
+      const [lic, prof, o, act, txRes] = await Promise.all([
         window.api.license.get({ token }).catch(() => ({ ok: false })),
         window.api.profiles.list({ token, teamId: activeTeamId }).catch(() => ({ ok: false })),
         window.api.team.overview({ token, teamId: activeTeamId }).catch(() => ({ ok: false })),
         can('activity.view') ? window.api.activity.list({ token, limit: 30 }).catch(() => ({ ok: false })) : Promise.resolve({ ok: true, entries: [] }),
+        window.api.license.getTransactions({ token, limit: 30 }).catch(() => ({ ok: false })),
       ]);
 
       if (lic.ok) setLicenseData(lic);
       if (prof.ok) setProfiles(prof.profiles || []);
       if (o.ok) setOverview(o);
       if (act.ok) setActivity(act.entries || []);
+      if (txRes && txRes.ok) setTransactions(txRes.transactions || []);
       setLoadError(null);
     } catch (err) {
       setLoadError(err.message);
@@ -83,6 +87,11 @@ export default function DashboardPage({ navigate }) {
   const lic = licenseData?.license;
   const earn = licenseData?.earnings;
 
+  const filteredTransactions = transactions.filter((tx) => {
+    if (txFilter === 'all') return true;
+    return tx.type === txFilter;
+  });
+
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
@@ -114,12 +123,12 @@ export default function DashboardPage({ navigate }) {
         <div className="card" style={{
           marginBottom: 20,
           padding: 20,
-          background: 'linear-gradient(135deg, rgba(200, 85, 61, 0.08) 0%, rgba(20, 20, 24, 0.95) 100%)',
-          border: '1px solid rgba(200, 85, 61, 0.25)',
+          background: 'linear-gradient(135deg, rgba(200, 85, 61, 0.06) 0%, rgba(18, 20, 22, 0.95) 100%)',
+          border: '1px solid var(--border)',
           position: 'relative',
           overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14, marginBottom: 10 }}>
             <div>
               <div className="dim" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
                 Month-to-Date Gross Earnings ({earn.period})
@@ -160,39 +169,38 @@ export default function DashboardPage({ navigate }) {
             </div>
           </div>
 
-          {/* Revenue Cap & Infloww-Style Scale Progress Bar */}
+          {/* Refined Blended Revenue Scale Meter (Subtle 3px Track) */}
           <div style={{ marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-              <span className="muted">
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 5, color: 'var(--text-2)' }}>
+              <span>
                 {lic.is_percentage_scale ? (
                   <span style={{ color: 'var(--online-green)', fontWeight: 600 }}>
-                    ⚡ Active Enterprise Percentage Scaling (1.0% volume rate over $250,000)
+                    ⚡ Active Enterprise Percentage Scaling · 1.0% volume rate over $250k
                   </span>
                 ) : (
                   <span>
-                    {earn.cap_percent}% toward $250,000 scale ceiling · Tier fee: <strong style={{ color: 'var(--gold)' }}>${lic.monthly_fee}/mo</strong>
+                    {earn.cap_percent}% toward $250k tier cap · <span className="mono" style={{ color: 'var(--text-0)', fontWeight: 600 }}>${lic.monthly_fee}/mo</span>
+                    <span className="dim" style={{ marginLeft: 8 }}>({lic.rate_explanation})</span>
                   </span>
                 )}
               </span>
               <span className="dim">
                 {lic.is_percentage_scale
                   ? `+$${(lic.excess_fee || 0).toLocaleString()} volume commission ($${(lic.excess_gross || 0).toLocaleString()} over $250k)`
-                  : `$${(lic.headroom || 0).toLocaleString()} headroom to $250k ceiling`}
+                  : `$${(lic.headroom || 0).toLocaleString()} headroom`}
               </span>
             </div>
-            <div style={{ width: '100%', height: 8, background: 'var(--bg-3)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
               <div style={{
                 width: `${earn.cap_percent}%`,
                 height: '100%',
                 background: lic.is_percentage_scale
                   ? 'linear-gradient(90deg, var(--gold), var(--online-green))'
-                  : earn.cap_percent > 90 ? 'var(--danger)' : 'linear-gradient(90deg, var(--gold), #e67e22)',
-                borderRadius: 4,
+                  : 'linear-gradient(90deg, var(--gold-soft), var(--gold))',
+                borderRadius: 2,
+                boxShadow: '0 0 6px rgba(212,166,74,0.25)',
                 transition: 'width 0.4s ease',
               }} />
-            </div>
-            <div className="dim" style={{ fontSize: 11, marginTop: 4 }}>
-              {lic.rate_explanation}
             </div>
           </div>
 
@@ -365,30 +373,114 @@ export default function DashboardPage({ navigate }) {
           )}
         </div>
 
-        {/* Right Column: Recent Activity Feed */}
+        {/* Right Column: Live Creator Sales & Activity Feed */}
         <div className="card" style={{ padding: 18 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{ margin: 0 }}>Recent Activity</h3>
-            <span className="dim" style={{ fontSize: 11 }}>Live Audit</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--online-green)', boxShadow: '0 0 8px var(--online-green)' }} />
+              <h3 style={{ margin: 0, fontSize: 15 }}>Recent Activity</h3>
+            </div>
+            <span className="dim" style={{ fontSize: 11 }}>Live Creator Sales Feed</span>
           </div>
 
-          {activity.length === 0 ? (
-            <div className="dim" style={{ fontSize: 12, padding: 20, textAlign: 'center' }}>
-              No recent activity logged yet.
+          {/* Quick Category Filter Pills */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', paddingBottom: 2 }}>
+            {[
+              { key: 'all', label: 'All Sales' },
+              { key: 'tip', label: 'Tips' },
+              { key: 'chatting_sale', label: 'Chatting Sales' },
+              { key: 'custom_pay', label: 'Pay Sales' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className="ghost"
+                onClick={() => setTxFilter(f.key)}
+                style={{
+                  fontSize: 10, padding: '2px 8px', borderRadius: 'var(--radius-pill)',
+                  background: txFilter === f.key ? 'var(--bg-3)' : 'transparent',
+                  color: txFilter === f.key ? 'var(--text-0)' : 'var(--text-2)',
+                  borderColor: txFilter === f.key ? 'var(--gold)' : 'transparent',
+                  fontWeight: txFilter === f.key ? 700 : 500,
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {filteredTransactions.length === 0 ? (
+            <div className="dim" style={{ fontSize: 12, padding: 24, textAlign: 'center' }}>
+              No transactions recorded yet in this category.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
-              {activity.slice(0, 15).map((e, idx) => (
-                <div key={e.id || idx} style={{ fontSize: 12, padding: '6px 8px', background: 'var(--bg-1)', borderRadius: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                    <strong style={{ color: 'var(--text-1)' }}>{e.username || 'System'}</strong>
-                    <span className="dim" style={{ fontSize: 10 }}>{new Date(e.created_at || Date.now()).toLocaleTimeString()}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto' }}>
+              {filteredTransactions.slice(0, 15).map((tx) => {
+                const isTip = tx.type === 'tip';
+                const isChat = tx.type === 'chatting_sale';
+                const isCustom = tx.type === 'custom_pay';
+
+                const badgeBg = isTip
+                  ? 'rgba(212, 166, 74, 0.15)'
+                  : isChat
+                  ? 'rgba(0, 175, 240, 0.15)'
+                  : isCustom
+                  ? 'rgba(139, 92, 246, 0.15)'
+                  : 'rgba(127, 217, 154, 0.15)';
+
+                const badgeColor = isTip
+                  ? 'var(--gold)'
+                  : isChat
+                  ? '#00aff0'
+                  : isCustom
+                  ? '#a78bfa'
+                  : 'var(--online-green)';
+
+                const platformEmoji = tx.platform === 'onlyfans' ? '💙' : tx.platform === 'fansly' ? '💙' : '💜';
+                const timeAgo = (() => {
+                  const diffMin = Math.round((Date.now() - new Date(tx.created_at).getTime()) / 60000);
+                  if (diffMin < 1) return 'just now';
+                  if (diffMin < 60) return `${diffMin}m ago`;
+                  return `${Math.round(diffMin / 60)}h ago`;
+                })();
+
+                return (
+                  <div
+                    key={tx.id}
+                    style={{
+                      fontSize: 12, padding: '8px 10px', background: 'var(--bg-1)',
+                      border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 14 }}>{platformEmoji}</span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <span style={{
+                            fontSize: 9, padding: '1px 6px', borderRadius: 3,
+                            background: badgeBg, color: badgeColor, fontWeight: 700, textTransform: 'uppercase'
+                          }}>
+                            {tx.type_label || tx.type}
+                          </span>
+                          <strong style={{ color: 'var(--text-0)' }}>Model {tx.profile_name}</strong>
+                          <span className="dim" style={{ fontSize: 11 }}>{tx.fan_handle}</span>
+                        </div>
+                        <div className="dim" style={{ fontSize: 11 }}>
+                          {tx.description || 'Creator platform transaction'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div className="mono" style={{ color: 'var(--online-green)', fontWeight: 700, fontSize: 13 }}>
+                        +${tx.amount?.toFixed(2)}
+                      </div>
+                      <div className="dim" style={{ fontSize: 10 }}>{timeAgo}</div>
+                    </div>
                   </div>
-                  <div className="muted" style={{ fontSize: 11 }}>
-                    {e.action || 'Action'} {e.details ? `· ${e.details}` : ''}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -47,36 +47,41 @@ function listAssignments(profileId) {
 function register(ipcMain) {
   ensureProfileMigrations();
   ipcMain.handle('profiles:list', (_e, { token, teamId }) => {
-    const user = userFromToken(token);
-    if (!user) return { ok: false, error: 'Not authenticated' };
+    try {
+      const user = userFromToken(token);
+      if (!user) return { ok: false, error: 'Not authenticated' };
 
-    // Strict employee scoping: non-owners only see profiles they're assigned to.
-    const scope = profileScopeClause(user, 'p');
-    const whereSql = teamId ? `p.team_id = ? AND ${scope.sql}` : scope.sql;
-    const whereParams = teamId ? [teamId, ...scope.params] : scope.params;
-    const rows = getDb()
-      .prepare(
-        `SELECT p.*, u.display_name AS assigned_to_name, u.username AS assigned_to_username,
-                (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id) AS account_count,
-                (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status = 'ready') AS ready_count
-         FROM model_profiles p
-         LEFT JOIN users u ON u.id = p.assigned_user_id
-         WHERE ${whereSql}
-         ORDER BY p.created_at DESC`
-      )
-      .all(...whereParams);
+      // Strict employee scoping: non-owners only see profiles they're assigned to.
+      const scope = profileScopeClause(user, 'p');
+      const whereSql = teamId ? `(p.team_id = ? OR p.team_id IS NULL) AND ${scope.sql}` : scope.sql;
+      const whereParams = teamId ? [teamId, ...scope.params] : scope.params;
+      const rows = getDb()
+        .prepare(
+          `SELECT p.*, u.display_name AS assigned_to_name, u.username AS assigned_to_username,
+                  (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id) AS account_count,
+                  (SELECT COUNT(*) FROM reddit_accounts WHERE profile_id = p.id AND status = 'ready') AS ready_count
+           FROM model_profiles p
+           LEFT JOIN users u ON u.id = p.assigned_user_id
+           WHERE ${whereSql}
+           ORDER BY p.created_at DESC`
+        )
+        .all(...whereParams);
 
-    for (const r of rows) {
-      r.members = listAssignments(r.id);
-      try {
-        r.accounts = getDb().prepare(
-          'SELECT id, username, platform, status FROM reddit_accounts WHERE profile_id = ? ORDER BY platform, username'
-        ).all(r.id);
-      } catch {
-        r.accounts = [];
+      for (const r of rows) {
+        r.members = listAssignments(r.id);
+        try {
+          r.accounts = getDb().prepare(
+            'SELECT id, username, platform, status FROM reddit_accounts WHERE profile_id = ? ORDER BY platform, username'
+          ).all(r.id);
+        } catch {
+          r.accounts = [];
+        }
       }
+      return { ok: true, profiles: rows };
+    } catch (err) {
+      console.error('Error in profiles:list:', err);
+      return { ok: false, error: err.message, profiles: [] };
     }
-    return { ok: true, profiles: rows };
   });
 
   ipcMain.handle('profiles:addMember', (_e, { token, profileId, userId, role }) => {

@@ -508,6 +508,8 @@ const api = {
     activate: (data) => ipcRenderer.invoke('license:activate', data),
     updateConnection: (data) => ipcRenderer.invoke('license:updateConnection', data),
     updateEarnings: (data) => ipcRenderer.invoke('license:updateEarnings', data),
+    getTransactions: (data) => ipcRenderer.invoke('license:getTransactions', data),
+    addTransaction: (data) => ipcRenderer.invoke('license:addTransaction', data),
   },
   shifts: {
     list: (data) => ipcRenderer.invoke('shifts:list', data),

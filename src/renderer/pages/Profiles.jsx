@@ -71,26 +71,37 @@ export default function ProfilesPage({ navigate }) {
     }
   }
 
-  async function load() {
-    const p = await window.api.profiles.list({ token, teamId: activeTeamId });
-    if (p.ok) setProfiles(p.profiles || []);
-    if (canManage) {
-      const u = await window.api.auth.listUsers({ token }).catch(() => ({ ok: false }));
-      if (u.ok) setUsers(u.users || []);
+  const load = React.useCallback(async () => {
+    try {
+      const p = await window.api.profiles.list({ token, teamId: activeTeamId }).catch((err) => ({ ok: false, error: err.message }));
+      if (p && p.ok) setProfiles(p.profiles || []);
+
+      const [uRes, pxRes, rRes] = await Promise.all([
+        canManage ? window.api.auth.listUsers({ token }).catch(() => ({ ok: false })) : Promise.resolve({ ok: false }),
+        window.api.proxies.list({ token, teamId: activeTeamId }).catch(() => ({ ok: false })),
+        window.api.roles.list({ token }).catch(() => ({ ok: false })),
+      ]);
+      if (uRes && uRes.ok) setUsers(uRes.users || []);
+      if (pxRes && pxRes.ok) setProxies(pxRes.proxies || []);
+      if (rRes && rRes.ok) setRoles(rRes.roles || []);
+    } catch (e) {
+      console.error('Error loading profiles page:', e);
+    } finally {
+      setLoadingSkel(false);
     }
-    const px = await window.api.proxies.list({ token, teamId: activeTeamId }).catch(() => ({ ok: false }));
-    if (px.ok) setProxies(px.proxies || []);
-    const r = await window.api.roles.list({ token }).catch(() => ({ ok: false }));
-    if (r.ok) setRoles(r.roles || []);
-    setLoadingSkel(false);
-  }
+  }, [token, activeTeamId, canManage]);
 
   useEffect(() => {
     load();
-    checkAvailabilityWithRetry(token);
-  }, [token, activeTeamId]);
+  }, [load]);
 
-  useCloudReload(['model_profiles', 'proxies', 'roles', 'role_permissions'], () => { load(); });
+  useEffect(() => {
+    if (token) {
+      checkAvailabilityWithRetry(token, { attempts: 2, delayMs: 2000 }).catch(() => {});
+    }
+  }, [token, checkAvailabilityWithRetry]);
+
+  useCloudReload(['model_profiles', 'proxies', 'roles', 'role_permissions'], load);
 
   async function handleStartCloakManager() {
     setStartingCm(true);
