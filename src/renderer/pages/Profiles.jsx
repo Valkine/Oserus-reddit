@@ -3,6 +3,8 @@ import { useAuth } from '../lib/auth.jsx';
 import { useCan } from '../lib/permissions.jsx';
 import { useCloudReload } from '../lib/cloudReload.jsx';
 import { useCloakManagerLaunch } from '../hooks/useCloakManagerLaunch';
+import { useToast } from '../lib/toast.jsx';
+import { launchModelBrowser } from '../lib/launchAccount.js';
 import { EmptyState } from '../components/ui.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import { ProfilesSkeleton } from '../components/Skeletons.jsx';
@@ -13,9 +15,11 @@ import CreateModelDrawer from '../components/CreateModelDrawer.jsx';
 
 export default function ProfilesPage({ navigate, routeParams }) {
   const { token, user, activeTeamId } = useAuth();
-  const { isAvailable, cmBaseUrl, checkAvailabilityWithRetry, startCloakManager } = useCloakManagerLaunch();
+  const { toast } = useToast();
+  const { isAvailable, cmBaseUrl, checkAvailabilityWithRetry, startCloakManager, cloakStatus } = useCloakManagerLaunch();
   const [startingCm, setStartingCm] = useState(false);
   const [cmMsg, setCmMsg] = useState(null);
+  const [launchingId, setLaunchingId] = useState(null);
 
   const [profiles, setProfiles] = useState([]);
   const [availablePlatforms, setAvailablePlatforms] = useState([]);
@@ -83,6 +87,25 @@ export default function ProfilesPage({ navigate, routeParams }) {
     } finally {
       setStartingCm(false);
       setTimeout(() => setCmMsg(null), 4000);
+    }
+  }
+
+  async function handleLaunchModel(profile) {
+    const accCount = profile.accounts?.length || profile.account_count || 0;
+    if (accCount === 0) {
+      toast('err', `Cannot open browser: Model "${profile.name}" has 0 designated accounts. Please add an account first.`);
+      return;
+    }
+    setLaunchingId(`model-${profile.id}`);
+    try {
+      const res = await launchModelBrowser({ token, profileId: Number(profile.id) });
+      if (res && !res.ok) {
+        toast('err', `Failed to launch browser: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      toast('err', `Launch error: ${err.message || err}`);
+    } finally {
+      setLaunchingId(null);
     }
   }
 
@@ -325,16 +348,23 @@ export default function ProfilesPage({ navigate, routeParams }) {
               </tr>
             </thead>
             <tbody>
-              {filteredProfiles.map((p) => (
-                <ModelRow
-                  key={p.id}
-                  profile={p}
-                  canManage={canManage}
-                  onManage={(profile) => navigate && navigate('model', { modelId: profile.id })}
-                  onEdit={(profile) => setEditingProfile(profile)}
-                  onDelete={(profile) => setDeletingProfile(profile)}
-                />
-              ))}
+              {filteredProfiles.map((p) => {
+                const isRunning = p.cloak_profile_name && cloakStatus && cloakStatus[p.cloak_profile_name] === 'running';
+                const isLaunching = launchingId === `model-${p.id}`;
+                return (
+                  <ModelRow
+                    key={p.id}
+                    profile={p}
+                    canManage={canManage}
+                    isLaunching={isLaunching}
+                    isRunning={isRunning}
+                    onLaunch={handleLaunchModel}
+                    onManage={(profile) => navigate && navigate('model', { modelId: profile.id })}
+                    onEdit={(profile) => setEditingProfile(profile)}
+                    onDelete={(profile) => setDeletingProfile(profile)}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>

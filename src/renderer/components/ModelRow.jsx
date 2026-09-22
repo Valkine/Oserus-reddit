@@ -31,7 +31,16 @@ const STATUS_CONFIG = {
   },
 };
 
-export default function ModelRow({ profile, canManage, onManage, onEdit, onDelete }) {
+export default function ModelRow({
+  profile,
+  canManage,
+  onLaunch,
+  isLaunching,
+  isRunning,
+  onManage,
+  onEdit,
+  onDelete,
+}) {
   const {
     id,
     name,
@@ -39,12 +48,15 @@ export default function ModelRow({ profile, canManage, onManage, onEdit, onDelet
     avatar_color = '#d4a64a',
     status = 'active',
     accounts = [],
+    account_count,
     members = [],
     assigned_to_username,
   } = profile;
 
   const initials = getInitials(name);
   const statusInfo = STATUS_CONFIG[status] || STATUS_CONFIG.active;
+  const totalAccountCount = accounts?.length || account_count || 0;
+  const hasAccounts = totalAccountCount > 0;
 
   // Build assigned member usernames list
   const assignedNames = [];
@@ -246,9 +258,33 @@ export default function ModelRow({ profile, canManage, onManage, onEdit, onDelet
         </span>
       </td>
 
-      {/* 6. Row Actions: Manage, Edit, Delete (Zero Launch Browser button per spec) */}
+      {/* 6. Row Actions: Launch Browser, Manage, Edit, Delete */}
       <td style={{ padding: '12px 14px', textAlign: 'right' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <button
+            className={isRunning ? 'ghost' : hasAccounts ? 'primary' : 'ghost'}
+            disabled={isLaunching || !hasAccounts}
+            onClick={() => onLaunch && onLaunch(profile)}
+            style={{
+              fontSize: 11,
+              padding: '4px 10px',
+              fontWeight: 600,
+              opacity: hasAccounts ? 1 : 0.45,
+              cursor: hasAccounts ? 'pointer' : 'not-allowed',
+              background: isRunning ? 'rgba(16, 185, 129, 0.15)' : undefined,
+              borderColor: isRunning ? 'rgba(16, 185, 129, 0.4)' : undefined,
+              color: isRunning ? '#34d399' : undefined,
+            }}
+            title={
+              !hasAccounts
+                ? 'Add at least 1 designated account to launch browser'
+                : isRunning
+                ? 'Browser running — click to focus window'
+                : 'Launch isolated browser workspace'
+            }
+          >
+            {isLaunching ? '⏳ Launching…' : isRunning ? '● Running' : '▶ Open Browser'}
+          </button>
           <button
             className="ghost"
             onClick={() => onManage && onManage(profile)}
